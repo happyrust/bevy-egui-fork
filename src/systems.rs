@@ -12,7 +12,7 @@ use bevy::{
         keyboard::{KeyCode, KeyboardInput},
         mouse::{MouseButton, MouseButtonInput, MouseScrollUnit, MouseWheel},
         touch::TouchInput,
-        ButtonState, Input,
+        ButtonState, ButtonInput,
     },
     prelude::{Entity, EventReader, Query, Resource, Time},
     time::Real,
@@ -63,7 +63,7 @@ pub struct TouchId(pub Option<u64>);
 pub struct InputResources<'w, 's> {
     #[cfg(feature = "manage_clipboard")]
     pub egui_clipboard: Res<'w, crate::EguiClipboard>,
-    pub keyboard_input: Res<'w, Input<KeyCode>>,
+    pub keyboard_input: Res<'w, ButtonInput<KeyCode>>,
     #[system_param(ignore)]
     _marker: PhantomData<&'s ()>,
 }
