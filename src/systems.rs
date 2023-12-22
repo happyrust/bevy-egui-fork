@@ -222,7 +222,7 @@ pub fn process_input_system(
 
     if !command || cfg!(target_os = "windows") && ctrl && alt {
         for event in input_events.ev_received_character.read() {
-            if !event.char.is_control() {
+            if event.char.matches(char::is_control).count() == 0 {
                 let mut context = context_params.contexts.get_mut(event.window).unwrap();
                 context
                     .egui_input
@@ -244,7 +244,7 @@ pub fn process_input_system(
         })
     {
         for ev in input_events.ev_keyboard_input.read() {
-            if let Some(key) = ev.key_code.and_then(bevy_to_egui_key) {
+            if let Some(key) = bevy_to_egui_key(ev.key_code) {
                 let pressed = match ev.state {
                     ButtonState::Pressed => true,
                     ButtonState::Released => false,
@@ -359,13 +359,14 @@ pub fn process_input_system(
     }
 
     for mut context in context_params.contexts.iter_mut() {
-        context.egui_input.predicted_dt = time.delta_seconds();
+        context.egui_input.time = Some(time.elapsed_seconds_f64());
     }
 
     // In some cases, we may skip certain events. For example, we ignore `ReceivedCharacter` events
     // when alt or ctrl button is pressed. We still want to clear event buffer.
     input_events.clear();
 }
+
 
 /// Initialises Egui contexts (for multiple windows).
 pub fn update_window_contexts_system(
@@ -486,7 +487,7 @@ pub fn process_output_system(
 fn egui_to_winit_cursor_icon(cursor_icon: egui::CursorIcon) -> Option<bevy::window::CursorIcon> {
     match cursor_icon {
         egui::CursorIcon::Default => Some(bevy::window::CursorIcon::Default),
-        egui::CursorIcon::PointingHand => Some(bevy::window::CursorIcon::Hand),
+        egui::CursorIcon::PointingHand => Some(bevy::window::CursorIcon::Pointer),
         egui::CursorIcon::ResizeHorizontal => Some(bevy::window::CursorIcon::EwResize),
         egui::CursorIcon::ResizeNeSw => Some(bevy::window::CursorIcon::NeswResize),
         egui::CursorIcon::ResizeNwSe => Some(bevy::window::CursorIcon::NwseResize),
@@ -525,14 +526,14 @@ fn egui_to_winit_cursor_icon(cursor_icon: egui::CursorIcon) -> Option<bevy::wind
 
 fn bevy_to_egui_key(key_code: KeyCode) -> Option<egui::Key> {
     let key = match key_code {
-        KeyCode::Down => egui::Key::ArrowDown,
-        KeyCode::Left => egui::Key::ArrowLeft,
-        KeyCode::Right => egui::Key::ArrowRight,
-        KeyCode::Up => egui::Key::ArrowUp,
+        KeyCode::ArrowDown => egui::Key::ArrowDown,
+        KeyCode::ArrowLeft => egui::Key::ArrowLeft,
+        KeyCode::ArrowRight => egui::Key::ArrowRight,
+        KeyCode::ArrowUp => egui::Key::ArrowUp,
         KeyCode::Escape => egui::Key::Escape,
         KeyCode::Tab => egui::Key::Tab,
-        KeyCode::Back => egui::Key::Backspace,
-        KeyCode::Return => egui::Key::Enter,
+        KeyCode::Backspace => egui::Key::Backspace,
+        KeyCode::Enter => egui::Key::Enter,
         KeyCode::NumpadEnter => egui::Key::Enter,
         KeyCode::Space => egui::Key::Space,
         KeyCode::Insert => egui::Key::Insert,
@@ -541,42 +542,42 @@ fn bevy_to_egui_key(key_code: KeyCode) -> Option<egui::Key> {
         KeyCode::End => egui::Key::End,
         KeyCode::PageUp => egui::Key::PageUp,
         KeyCode::PageDown => egui::Key::PageDown,
-        KeyCode::Numpad0 | KeyCode::Key0 => egui::Key::Num0,
-        KeyCode::Numpad1 | KeyCode::Key1 => egui::Key::Num1,
-        KeyCode::Numpad2 | KeyCode::Key2 => egui::Key::Num2,
-        KeyCode::Numpad3 | KeyCode::Key3 => egui::Key::Num3,
-        KeyCode::Numpad4 | KeyCode::Key4 => egui::Key::Num4,
-        KeyCode::Numpad5 | KeyCode::Key5 => egui::Key::Num5,
-        KeyCode::Numpad6 | KeyCode::Key6 => egui::Key::Num6,
-        KeyCode::Numpad7 | KeyCode::Key7 => egui::Key::Num7,
-        KeyCode::Numpad8 | KeyCode::Key8 => egui::Key::Num8,
-        KeyCode::Numpad9 | KeyCode::Key9 => egui::Key::Num9,
-        KeyCode::A => egui::Key::A,
-        KeyCode::B => egui::Key::B,
-        KeyCode::C => egui::Key::C,
-        KeyCode::D => egui::Key::D,
-        KeyCode::E => egui::Key::E,
-        KeyCode::F => egui::Key::F,
-        KeyCode::G => egui::Key::G,
-        KeyCode::H => egui::Key::H,
-        KeyCode::I => egui::Key::I,
-        KeyCode::J => egui::Key::J,
-        KeyCode::K => egui::Key::K,
-        KeyCode::L => egui::Key::L,
-        KeyCode::M => egui::Key::M,
-        KeyCode::N => egui::Key::N,
-        KeyCode::O => egui::Key::O,
-        KeyCode::P => egui::Key::P,
-        KeyCode::Q => egui::Key::Q,
-        KeyCode::R => egui::Key::R,
-        KeyCode::S => egui::Key::S,
-        KeyCode::T => egui::Key::T,
-        KeyCode::U => egui::Key::U,
-        KeyCode::V => egui::Key::V,
-        KeyCode::W => egui::Key::W,
-        KeyCode::X => egui::Key::X,
-        KeyCode::Y => egui::Key::Y,
-        KeyCode::Z => egui::Key::Z,
+        KeyCode::Numpad0 | KeyCode::Digit0 => egui::Key::Num0,
+        KeyCode::Numpad1 | KeyCode::Digit1 => egui::Key::Num1,
+        KeyCode::Numpad2 | KeyCode::Digit2 => egui::Key::Num2,
+        KeyCode::Numpad3 | KeyCode::Digit3 => egui::Key::Num3,
+        KeyCode::Numpad4 | KeyCode::Digit4 => egui::Key::Num4,
+        KeyCode::Numpad5 | KeyCode::Digit5 => egui::Key::Num5,
+        KeyCode::Numpad6 | KeyCode::Digit6 => egui::Key::Num6,
+        KeyCode::Numpad7 | KeyCode::Digit7 => egui::Key::Num7,
+        KeyCode::Numpad8 | KeyCode::Digit8 => egui::Key::Num8,
+        KeyCode::Numpad9 | KeyCode::Digit9 => egui::Key::Num9,
+        KeyCode::KeyA => egui::Key::A,
+        KeyCode::KeyB => egui::Key::B,
+        KeyCode::KeyC => egui::Key::C,
+        KeyCode::KeyD => egui::Key::D,
+        KeyCode::KeyE => egui::Key::E,
+        KeyCode::KeyF => egui::Key::F,
+        KeyCode::KeyG => egui::Key::G,
+        KeyCode::KeyH => egui::Key::H,
+        KeyCode::KeyI => egui::Key::I,
+        KeyCode::KeyJ => egui::Key::J,
+        KeyCode::KeyK => egui::Key::K,
+        KeyCode::KeyL => egui::Key::L,
+        KeyCode::KeyM => egui::Key::M,
+        KeyCode::KeyN => egui::Key::N,
+        KeyCode::KeyO => egui::Key::O,
+        KeyCode::KeyP => egui::Key::P,
+        KeyCode::KeyQ => egui::Key::Q,
+        KeyCode::KeyR => egui::Key::R,
+        KeyCode::KeyS => egui::Key::S,
+        KeyCode::KeyT => egui::Key::T,
+        KeyCode::KeyU => egui::Key::U,
+        KeyCode::KeyV => egui::Key::V,
+        KeyCode::KeyW => egui::Key::W,
+        KeyCode::KeyX => egui::Key::X,
+        KeyCode::KeyY => egui::Key::Y,
+        KeyCode::KeyZ => egui::Key::Z,
         _ => return None,
     };
     Some(key)
