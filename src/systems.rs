@@ -61,7 +61,7 @@ pub struct TouchId(pub Option<u64>);
 #[allow(missing_docs)]
 #[derive(SystemParam)]
 pub struct InputResources<'w, 's> {
-    #[cfg(feature = "manage_clipboard")]
+    #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
     pub egui_clipboard: Res<'w, crate::EguiClipboard>,
     pub keyboard_input: Res<'w, ButtonInput<KeyCode>>,
     #[system_param(ignore)]
@@ -259,7 +259,7 @@ pub fn process_input_system(
 
                 // We also check that it's an `ButtonState::Pressed` event, as we don't want to
                 // copy, cut or paste on the key release.
-                #[cfg(feature = "manage_clipboard")]
+                #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
                 if command && pressed {
                     match key {
                         egui::Key::C => {
@@ -417,7 +417,8 @@ pub fn process_output_system(
         EguiSettings,
     >,
     mut contexts: Query<EguiContextQuery>,
-    #[cfg(feature = "manage_clipboard")] mut egui_clipboard: ResMut<crate::EguiClipboard>,
+    #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
+    mut egui_clipboard: ResMut<crate::EguiClipboard>,
     mut event: EventWriter<RequestRedraw>,
     #[cfg(windows)] mut last_cursor_icon: Local<bevy::utils::HashMap<Entity, egui::CursorIcon>>,
 ) {
@@ -429,7 +430,7 @@ pub fn process_output_system(
             shapes,
             textures_delta,
             pixels_per_point,
-            viewport_output,
+            viewport_output: _,
         } = full_output;
         let paint_jobs = ctx.tessellate(shapes, pixels_per_point);
 
@@ -438,7 +439,7 @@ pub fn process_output_system(
 
         context.egui_output.platform_output = platform_output.clone();
 
-        #[cfg(feature = "manage_clipboard")]
+        #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
         if !platform_output.copied_text.is_empty() {
             egui_clipboard.set_contents(&platform_output.copied_text);
         }
@@ -459,8 +460,8 @@ pub fn process_output_system(
         #[cfg(not(windows))]
         set_icon();
 
-        if viewport_output.is_empty() {
-            event.send(RequestRedraw);
+        if ctx.has_requested_repaint() {
+            event.send(RequestRedraw)
         }
 
         #[cfg(feature = "open_url")]
