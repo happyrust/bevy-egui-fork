@@ -461,7 +461,7 @@ pub fn process_output_system(
         set_icon();
 
         if ctx.has_requested_repaint() {
-            event.send(RequestRedraw)
+            event.send(RequestRedraw);
         }
 
         #[cfg(feature = "open_url")]

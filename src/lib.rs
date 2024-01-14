@@ -97,11 +97,6 @@ use bevy::{
 };
 use bevy::{
     app::{App, Plugin, PostUpdate, PreStartup, PreUpdate},
-    ecs::{
-        query::{QueryEntityError, WorldQuery},
-        schedule::apply_deferred,
-        system::SystemParam,
-    },
     input::InputSystem,
     prelude::{
         Added, Commands, Component, Deref, DerefMut, Entity, IntoSystemConfigs, Query, Resource,

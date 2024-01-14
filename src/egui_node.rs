@@ -22,7 +22,7 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::{Image, ImageSampler},
-        view::ExtractedWindows,
+        view::ExtractedWindows, render_asset::RenderAssetPersistencePolicy,
     },
 };
 
@@ -446,6 +446,7 @@ pub(crate) fn color_image_as_bevy_image(
             TextureDimension::D2,
             pixels,
             TextureFormat::Rgba8UnormSrgb,
+            RenderAssetPersistencePolicy::Keep,
         )
     }
 }
