@@ -21,15 +21,26 @@ impl FromWorld for Images {
 /// - toggling hidpi scaling (by pressing '/' button);
 /// - configuring egui contexts during the startup.
 fn main() {
+    let mut window = Window {
+        title: "布置平台".into(),
+        // present_mode: PresentMode::Fifo,
+        // canvas: Some("#rs-plant".to_string()),
+        prevent_default_event_handling: true,
+        ..Default::default()
+    };
     App::new()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(window),
+            ..Default::default()
+        }))
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .insert_resource(Msaa::Sample4)
         .init_resource::<UiState>()
-        .add_plugins(DefaultPlugins)
+        // .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin)
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, configure_ui_state_system)
-        .add_systems(Update, update_ui_scale_factor_system)
+        // .add_systems(Update, update_ui_scale_factor_system)
         .add_systems(Update, ui_example_system)
         .run();
 }
@@ -50,12 +61,16 @@ fn configure_visuals_system(mut contexts: EguiContexts) {
     });
 }
 
-fn configure_ui_state_system(mut ui_state: ResMut<UiState>) {
+fn configure_ui_state_system(
+    mut ui_state: ResMut<UiState>,
+    mut egui_settings: ResMut<EguiSettings>,
+) {
     ui_state.is_window_open = true;
+    egui_settings.scale_factor = 1.0;
 }
 
 fn update_ui_scale_factor_system(
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
     mut toggle_scale_factor: Local<Option<bool>>,
     mut egui_settings: ResMut<EguiSettings>,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -69,7 +84,8 @@ fn update_ui_scale_factor_system(
             } else {
                 1.0 / window.scale_factor()
             };
-            egui_settings.scale_factor = scale_factor;
+            dbg!(scale_factor);
+            egui_settings.scale_factor = scale_factor as _;
         }
     }
 }
@@ -114,7 +130,8 @@ fn ui_example_system(
             ui.heading("Side Panel");
 
             ui.horizontal(|ui| {
-                ui.label("Write something: ");
+                // ui.label("Write something: ");
+                ui.add(egui::Label::new("Write something: ").selectable(true));
                 ui.text_edit_singleline(&mut ui_state.label);
             });
 

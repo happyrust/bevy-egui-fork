@@ -22,9 +22,11 @@ use bevy::{
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::{Image, ImageSampler},
-        view::ExtractedWindows, render_asset::RenderAssetPersistencePolicy,
+        view::ExtractedWindows,
+        // render_asset::RenderAssetPersistencePolicy,
     },
 };
+use bevy::render::render_asset::RenderAssetUsages;
 
 /// Egui shader.
 pub const EGUI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9898276442290979394);
@@ -446,7 +448,8 @@ pub(crate) fn color_image_as_bevy_image(
             TextureDimension::D2,
             pixels,
             TextureFormat::Rgba8UnormSrgb,
-            RenderAssetPersistencePolicy::Keep,
+            RenderAssetUsages::RENDER_WORLD,
+            // RenderAssetPersistencePolicy::Keep,
         )
     }
 }
