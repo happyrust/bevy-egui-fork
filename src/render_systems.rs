@@ -8,7 +8,7 @@ use bevy::{
     render::{
         extract_resource::ExtractResource,
         render_asset::RenderAssets,
-        render_graph::RenderGraph,
+        render_graph::{RenderGraph, RenderLabel},
         render_resource::{
             BindGroup, BindGroupEntry, BindingResource, BufferId, CachedRenderPipelineId,
             DynamicUniformBuffer, PipelineCache, ShaderType, SpecializedRenderPipelines,
@@ -20,8 +20,6 @@ use bevy::{
     },
     utils::HashMap,
 };
-use bevy::render::graph::CameraDriverLabel;
-use bevy::render::render_graph::RenderLabel;
 
 /// Extracted Egui settings.
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -56,11 +54,13 @@ pub struct ExtractedEguiTextures<'w> {
     pub user_textures: Res<'w, EguiUserTextures>,
 }
 
-/// RenderLabel type for the egui pass
+/// [`RenderLabel`] type for the Egui pass.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
 pub struct EguiPass {
-    window_index: u32,
-    window_generation: u32,
+    /// Index of the window entity.
+    pub window_index: u32,
+    /// Generation of the window entity.
+    pub window_generation: u32,
 }
 
 impl ExtractedEguiTextures<'_> {
@@ -87,8 +87,6 @@ pub fn setup_new_windows_render_system(
     mut render_graph: ResMut<RenderGraph>,
 ) {
     for window in windows.iter() {
-        // let egui_pass = format!("egui-{}-{}", window.index(), window.generation());
-
         let egui_pass = EguiPass {
             window_index: window.index(),
             window_generation: window.generation(),
@@ -98,11 +96,7 @@ pub fn setup_new_windows_render_system(
 
         render_graph.add_node(egui_pass.clone(), new_node);
 
-        render_graph.add_node_edge(
-            // bevy::render::main_graph::node::CAMERA_DRIVER,
-            CameraDriverLabel,
-            egui_pass,
-        );
+        render_graph.add_node_edge(bevy::render::graph::CameraDriverLabel, egui_pass);
     }
 }
 
@@ -155,10 +149,12 @@ pub fn prepare_egui_transforms_system(
     egui_transforms.offsets.clear();
 
     for (window, size) in window_sizes.iter() {
-        let offset = egui_transforms.buffer.push(&EguiTransform::from_window_size(
-            *size,
-            egui_settings.scale_factor as f32,
-        ));
+        let offset = egui_transforms
+            .buffer
+            .push(&EguiTransform::from_window_size(
+                *size,
+                egui_settings.scale_factor,
+            ));
         egui_transforms.offsets.insert(window, offset);
     }
 

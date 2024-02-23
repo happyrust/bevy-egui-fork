@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::{
-        camera::RenderTarget,
+        camera::{ClearColorConfig, RenderTarget},
         render_resource::{
             Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
         },
@@ -10,9 +10,6 @@ use bevy::{
 };
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiUserTextures};
 use egui::Widget;
-
-//todo 实现一个好看点的 button
-// input
 
 fn main() {
     App::new()
@@ -72,7 +69,7 @@ fn setup(
     egui_user_textures.add_image(image_handle.clone());
     commands.insert_resource(CubePreviewImage(image_handle.clone()));
 
-    let cube_handle = meshes.add(Mesh::from(shape::Cube { size: 4.0 }));
+    let cube_handle = meshes.add(Cuboid::new(4.0, 4.0, 4.0));
     let default_material = StandardMaterial {
         base_color: Color::rgb(0.8, 0.7, 0.6),
         reflectance: 0.02,
@@ -104,9 +101,6 @@ fn setup(
 
     commands
         .spawn(Camera3dBundle {
-            camera_3d: Camera3d {
-                ..default()
-            },
             camera: Camera {
                 // render before the "main pass" camera
                 order: -1,
@@ -121,7 +115,7 @@ fn setup(
         .insert(preview_pass_layer);
 
     let cube_size = 4.0;
-    let cube_handle = meshes.add(Mesh::from(shape::Box::new(cube_size, cube_size, cube_size)));
+    let cube_handle = meshes.add(Cuboid::new(cube_size, cube_size, cube_size));
 
     let main_material_handle = materials.add(default_material);
 
@@ -217,8 +211,7 @@ fn color_picker_widget(ui: &mut egui::Ui, color: &mut Color) -> egui::Response {
         g as f32 / 255.0,
         b as f32 / 255.0,
         a as f32 / 255.0,
-    )
-    .into();
+    );
     res
 }
 

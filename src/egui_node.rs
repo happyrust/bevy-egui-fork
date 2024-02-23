@@ -9,24 +9,23 @@ use bevy::{
     ecs::world::{FromWorld, World},
     prelude::{Entity, Handle, Resource},
     render::{
+        render_asset::RenderAssetUsages,
         render_graph::{Node, NodeRunError, RenderGraphContext},
         render_resource::{
-            BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-            BlendComponent, BlendFactor, BlendOperation, BlendState, Buffer, BufferAddress,
-            BufferBindingType, BufferDescriptor, BufferUsages, ColorTargetState, ColorWrites,
-            Extent3d, FragmentState, FrontFace, IndexFormat, LoadOp, MultisampleState, Operations,
-            PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-            RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
-            SpecializedRenderPipeline, TextureDimension, TextureFormat, TextureSampleType,
-            TextureViewDimension, VertexBufferLayout, VertexFormat, VertexState, VertexStepMode, StoreOp,
+            BindGroupLayout, BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor,
+            BlendOperation, BlendState, Buffer, BufferAddress, BufferBindingType, BufferDescriptor,
+            BufferUsages, ColorTargetState, ColorWrites, Extent3d, FragmentState, FrontFace,
+            IndexFormat, LoadOp, MultisampleState, Operations, PipelineCache, PrimitiveState,
+            RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor,
+            SamplerBindingType, Shader, ShaderStages, ShaderType, SpecializedRenderPipeline,
+            StoreOp, TextureDimension, TextureFormat, TextureSampleType, TextureViewDimension,
+            VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::{Image, ImageSampler},
         view::ExtractedWindows,
-        // render_asset::RenderAssetPersistencePolicy,
     },
 };
-use bevy::render::render_asset::RenderAssetUsages;
 
 /// Egui shader.
 pub const EGUI_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(9898276442290979394);
@@ -44,8 +43,9 @@ impl FromWorld for EguiPipeline {
     fn from_world(render_world: &mut World) -> Self {
         let render_device = render_world.get_resource::<RenderDevice>().unwrap();
 
-        let transform_bind_group_layout =
-            render_device.create_bind_group_layout("egui transform bind group layout", &[BindGroupLayoutEntry {
+        let transform_bind_group_layout = render_device.create_bind_group_layout(
+            "egui transform bind group layout",
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
@@ -54,10 +54,12 @@ impl FromWorld for EguiPipeline {
                     min_binding_size: Some(EguiTransform::min_size()),
                 },
                 count: None,
-            }]);
+            }],
+        );
 
-        let texture_bind_group_layout =
-            render_device.create_bind_group_layout("egui texture bind group layout", &[
+        let texture_bind_group_layout = render_device.create_bind_group_layout(
+            "egui texture bind group layout",
+            &[
                 BindGroupLayoutEntry {
                     binding: 0,
                     visibility: ShaderStages::FRAGMENT,
@@ -74,7 +76,8 @@ impl FromWorld for EguiPipeline {
                     ty: BindingType::Sampler(SamplerBindingType::Filtering),
                     count: None,
                 },
-            ]);
+            ],
+        );
 
         EguiPipeline {
             transform_bind_group_layout,
@@ -186,9 +189,9 @@ impl Node for EguiNode {
         let mut window_sizes = world.query::<(&WindowSize, &mut EguiRenderOutput)>();
 
         let Ok((window_size, mut render_output)) = window_sizes.get_mut(world, self.window_entity)
-            else {
-                return;
-            };
+        else {
+            return;
+        };
         let window_size = *window_size;
         let paint_jobs = std::mem::take(&mut render_output.paint_jobs);
 
@@ -196,7 +199,7 @@ impl Node for EguiNode {
 
         let render_device = world.get_resource::<RenderDevice>().unwrap();
 
-        let scale_factor = window_size.scale_factor * egui_settings.scale_factor as f32;
+        let scale_factor = window_size.scale_factor * egui_settings.scale_factor;
         if window_size.physical_width == 0.0 || window_size.physical_height == 0.0 {
             return;
         }
@@ -448,8 +451,7 @@ pub(crate) fn color_image_as_bevy_image(
             TextureDimension::D2,
             pixels,
             TextureFormat::Rgba8UnormSrgb,
-            RenderAssetUsages::RENDER_WORLD,
-            // RenderAssetPersistencePolicy::Keep,
+            RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
         )
     }
 }
