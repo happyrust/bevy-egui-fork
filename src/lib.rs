@@ -73,6 +73,14 @@ use crate::{
     not(any(target_arch = "wasm32", target_os = "android"))
 ))]
 use arboard::Clipboard;
+
+/// Clipboard management for web
+#[cfg(all(feature = "manage_clipboard", target_arch = "wasm32"))]
+pub mod web_clipboard;
+
+#[cfg(all(feature = "manage_clipboard", target_arch = "wasm32"))]
+use web_clipboard::{WebEventCopy, WebEventCut, WebEventPaste};
+
 #[allow(unused_imports)]
 use bevy::log;
 #[cfg(feature = "render")]
@@ -111,6 +119,7 @@ use std::borrow::Cow;
     not(any(target_arch = "wasm32", target_os = "android"))
 ))]
 use std::cell::{RefCell, RefMut};
+use log::info;
 #[cfg(all(
     feature = "manage_clipboard",
     not(any(target_arch = "wasm32", target_os = "android"))
@@ -179,8 +188,19 @@ pub struct EguiInput(pub egui::RawInput);
 pub struct EguiClipboard {
     #[cfg(not(target_arch = "wasm32"))]
     clipboard: ThreadLocal<Option<RefCell<Clipboard>>>,
+    // #[cfg(target_arch = "wasm32")]
+    // clipboard: String,
+    /// for copy events.
     #[cfg(target_arch = "wasm32")]
-    clipboard: String,
+    pub web_copy: web_clipboard::WebChannel<WebEventCopy>,
+    /// for copy events.
+    #[cfg(target_arch = "wasm32")]
+    pub web_cut: web_clipboard::WebChannel<WebEventCut>,
+    /// for paste events, only supporting strings.
+    #[cfg(target_arch = "wasm32")]
+    pub web_paste: web_clipboard::WebChannel<WebEventPaste>,
+    #[cfg(target_arch = "wasm32")]
+    clipboard: Option<String>,
 }
 
 #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
@@ -192,12 +212,17 @@ impl EguiClipboard {
 
     /// Gets clipboard contents. Returns [`None`] if clipboard provider is unavailable or returns an error.
     #[must_use]
-    pub fn get_contents(&self) -> Option<String> {
+    pub fn get_contents(&mut self) -> Option<String> {
         self.get_contents_impl()
+        // if r.is_some() {
+        //     // info!("get_contents: {:?}", &r);
+        //     self.clipboard = r;
+        // }
+        // self.clipboard.as_ref()
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn set_contents_impl(&self, contents: &str) {
+    fn set_contents_impl(&mut self, contents: &str) {
         if let Some(mut clipboard) = self.get() {
             if let Err(err) = clipboard.set_text(contents.to_owned()) {
                 log::error!("Failed to set clipboard contents: {:?}", err);
@@ -207,11 +232,12 @@ impl EguiClipboard {
 
     #[cfg(target_arch = "wasm32")]
     fn set_contents_impl(&mut self, contents: &str) {
-        self.clipboard = contents.to_owned();
+        info!("set_contents: {:?}", contents);
+        web_clipboard::clipboard_copy(contents.to_owned());
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn get_contents_impl(&self) -> Option<String> {
+    fn get_contents_impl(&mut self) -> Option<String> {
         if let Some(mut clipboard) = self.get() {
             match clipboard.get_text() {
                 Ok(contents) => return Some(contents),
@@ -223,8 +249,8 @@ impl EguiClipboard {
 
     #[cfg(target_arch = "wasm32")]
     #[allow(clippy::unnecessary_wraps)]
-    fn get_contents_impl(&self) -> Option<String> {
-        Some(self.clipboard.clone())
+    fn get_contents_impl(&mut self) -> Option<String> {
+        self.web_paste.try_read_clipboard_event().map(|e| e.0)
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -596,6 +622,9 @@ impl Plugin for EguiPlugin {
         app.add_plugins(ExtractComponentPlugin::<WindowSize>::default());
         #[cfg(feature = "render")]
         app.add_plugins(ExtractComponentPlugin::<EguiRenderOutput>::default());
+
+        #[cfg(all(feature = "manage_clipboard", target_arch = "wasm32"))]
+        app.add_systems(PreStartup, web_clipboard::startup_setup_web_events);
 
         app.add_systems(
             PreStartup,

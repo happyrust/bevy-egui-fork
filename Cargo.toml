@@ -41,7 +41,9 @@ required-features = ["render"]
 [dependencies]
 bevy = { path = "../bevy", default-features = false, features = [
     "bevy_asset",
+    "webgl2"
 ] }
+bytemuck = "1.14.3"
 egui = { path = "../egui/crates/egui", default-features = false, features = ["bytemuck"] }
 webbrowser = { version = "0.8.2", optional = true }
 
@@ -49,8 +51,6 @@ webbrowser = { version = "0.8.2", optional = true }
 arboard = { version = "3.2.0", optional = true }
 thread_local = { version = "1.1.0", optional = true }
 
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { version = "0.3.63", features = ["Navigator"] }
 
 [dev-dependencies]
 version-sync = "0.9.4"

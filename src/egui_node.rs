@@ -5,7 +5,6 @@ use crate::{
     EguiRenderOutput, EguiSettings, WindowSize,
 };
 use bevy::{
-    core::cast_slice,
     ecs::world::{FromWorld, World},
     prelude::{Entity, Handle, Resource},
     render::{
@@ -239,14 +238,14 @@ impl Node for EguiNode {
             }
 
             self.vertex_data
-                .extend_from_slice(cast_slice::<_, u8>(mesh.vertices.as_slice()));
+                .extend_from_slice(bytemuck::cast_slice::<_, u8>(mesh.vertices.as_slice()));
             let indices_with_offset = mesh
                 .indices
                 .iter()
                 .map(|i| i + index_offset)
                 .collect::<Vec<_>>();
             self.index_data
-                .extend_from_slice(cast_slice(indices_with_offset.as_slice()));
+                .extend_from_slice(bytemuck::cast_slice(indices_with_offset.as_slice()));
             index_offset += mesh.vertices.len() as u32;
 
             let texture_handle = match mesh.texture_id {

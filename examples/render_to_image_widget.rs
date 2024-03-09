@@ -193,7 +193,7 @@ fn render_to_image_example_system(
 }
 
 fn color_picker_widget(ui: &mut egui::Ui, color: &mut Color) -> egui::Response {
-    let [r, g, b, a] = color.as_rgba_f32();
+    let [r, g, b, a] = color.linear().to_f32_array();
     let mut egui_color: egui::Rgba = egui::Rgba::from_srgba_unmultiplied(
         (r * 255.0) as u8,
         (g * 255.0) as u8,

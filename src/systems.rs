@@ -22,6 +22,8 @@ use bevy::{
     },
 };
 use std::marker::PhantomData;
+use bevy::log::info;
+use bevy::prelude::Ime;
 
 #[allow(missing_docs)]
 #[derive(SystemParam)]
@@ -37,6 +39,7 @@ pub struct InputEvents<'w, 's> {
     pub ev_window_focused: EventReader<'w, 's, WindowFocused>,
     pub ev_window_created: EventReader<'w, 's, WindowCreated>,
     pub ev_touch: EventReader<'w, 's, TouchInput>,
+    pub ev_ime_input: EventReader<'w, 's, Ime>,
 }
 
 impl<'w, 's> InputEvents<'w, 's> {
@@ -52,6 +55,7 @@ impl<'w, 's> InputEvents<'w, 's> {
         self.ev_window_focused.read().last();
         self.ev_window_created.read().last();
         self.ev_touch.read().last();
+        self.ev_ime_input.read().last();
     }
 }
 
@@ -73,7 +77,7 @@ pub struct ModifierKeysState {
 #[derive(SystemParam)]
 pub struct InputResources<'w, 's> {
     #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
-    pub egui_clipboard: Res<'w, crate::EguiClipboard>,
+    pub egui_clipboard: ResMut<'w, crate::EguiClipboard>,
     pub modifier_keys_state: Local<'s, ModifierKeysState>,
     #[system_param(ignore)]
     _marker: PhantomData<&'w ()>,
@@ -98,6 +102,7 @@ pub fn process_input_system(
     egui_settings: Res<EguiSettings>,
     mut egui_mouse_position: ResMut<EguiMousePosition>,
     time: Res<Time<Real>>,
+    mut lazy_paste: Local<bool>,
 ) {
     // Test whether it's macOS or OS X.
     use std::sync::Once;
@@ -121,6 +126,16 @@ pub fn process_input_system(
     // when a window is created.
     if let Some(event) = input_events.ev_window_created.read().last() {
         *context_params.focused_window = Some(event.window);
+    }
+
+    //为什么在 winit 里加了个 input element，删除的时候就lost focus了？
+    //针对 wasm，单独处理逻辑
+    #[cfg(target_arch = "wasm32")]
+    for event in input_events.ev_window_focused.read() {
+        // info!("focused");
+        if event.focused {
+            *context_params.focused_window = Some(event.window);
+        }
     }
 
     for event in input_events.ev_window_focused.read() {
@@ -269,6 +284,7 @@ pub fn process_input_system(
     if !command && !win || !*context_params.is_macos && ctrl && alt {
         for event in input_events.ev_received_character.read() {
             if event.char.matches(char::is_control).count() == 0 {
+                // info!("received: {:?}", &event.char);
                 let mut context = context_params.contexts.get_mut(event.window).unwrap();
                 context
                     .egui_input
@@ -277,6 +293,47 @@ pub fn process_input_system(
             }
         }
     }
+
+    fn push_ime_event(params: &mut ContextSystemParams, window: &Entity, event: egui::Event) {
+        params
+            .contexts
+            .get_mut(*window)
+            .unwrap()
+            .egui_input
+            .events
+            .push(event);
+    }
+
+    for ev in input_events.ev_ime_input.read() {
+        match ev {
+            Ime::Preedit {
+                window,
+                value,
+                cursor: _,
+            } => {
+                push_ime_event(&mut context_params, window, egui::Event::CompositionStart);
+                push_ime_event(
+                    &mut context_params,
+                    window,
+                    egui::Event::CompositionUpdate(value.clone()),
+                );
+            }
+            Ime::Commit { window, value } => push_ime_event(
+                &mut context_params,
+                window,
+                egui::Event::CompositionEnd(value.clone()),
+            ),
+            Ime::Enabled { window } => {
+                push_ime_event(&mut context_params, window, egui::Event::CompositionStart)
+            }
+            Ime::Disabled { window } => push_ime_event(
+                &mut context_params,
+                window,
+                egui::Event::CompositionEnd("".to_string()),
+            ),
+        }
+    }
+
 
     if let Some(mut focused_input) = context_params
         .focused_window
@@ -289,6 +346,21 @@ pub fn process_input_system(
             }
         })
     {
+        #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
+        {
+            if *lazy_paste {
+                info!("lazy paste: {:?}", *lazy_paste);
+                //可能要等待的不只是一个帧
+                if let Some(contents) = input_resources.egui_clipboard.get_contents() {
+                    info!("lazy paste event: {}", &contents);
+                    focused_input
+                        .events
+                        .push(egui::Event::Text(contents));
+                    *lazy_paste = false;
+                }
+            }
+        }
+
         for ev in keyboard_input_events {
             if let (Some(key), physical_key) = (
                 bevy_to_egui_key(&ev.logical_key),
@@ -306,20 +378,26 @@ pub fn process_input_system(
                 // We also check that it's an `ButtonState::Pressed` event, as we don't want to
                 // copy, cut or paste on the key release.
                 #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
-                if command && ev.state.is_pressed() {
-                    match key {
-                        egui::Key::C => {
-                            focused_input.events.push(egui::Event::Copy);
-                        }
-                        egui::Key::X => {
-                            focused_input.events.push(egui::Event::Cut);
-                        }
-                        egui::Key::V => {
-                            if let Some(contents) = input_resources.egui_clipboard.get_contents() {
-                                focused_input.events.push(egui::Event::Text(contents))
+                {
+                    if command && ev.state.is_pressed() {
+                        match key {
+                            egui::Key::C => {
+                                // info!("copy event");
+                                // #[cfg(not(target_arch = "wasm32"))]
+                                focused_input.events.push(egui::Event::Copy);
                             }
+                            egui::Key::X => {
+                                // info!("cut event");
+                                // #[cfg(not(target_arch = "wasm32"))]
+                                focused_input.events.push(egui::Event::Cut);
+                            }
+                            egui::Key::V => {
+                                //有可能执行这个逻辑时，还没有获取到剪切板内容，所以这里需要加个下一帧再去获取的逻辑
+                                //在下一帧处理粘贴到 egui 的逻辑
+                                *lazy_paste = true;
+                            }
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
             }
@@ -343,10 +421,10 @@ pub fn process_input_system(
                 force: match touch.force {
                     Some(bevy::input::touch::ForceTouch::Normalized(force)) => Some(force as f32),
                     Some(bevy::input::touch::ForceTouch::Calibrated {
-                        force,
-                        max_possible_force,
-                        ..
-                    }) => Some((force / max_possible_force) as f32),
+                             force,
+                             max_possible_force,
+                             ..
+                         }) => Some((force / max_possible_force) as f32),
                     None => None,
                 },
             });
