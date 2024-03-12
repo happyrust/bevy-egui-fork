@@ -326,7 +326,6 @@ pub fn process_input_system(
             }
             Ime::Commit { window, value } => {
                 *input_method_editor_started = false;
-                dbg!(value);
                 push_ime_event(
                     &mut context_params,
                     window,

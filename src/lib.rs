@@ -113,13 +113,13 @@ use bevy::{
     reflect::Reflect,
     window::{PrimaryWindow, Window},
 };
+use log::info;
 use std::borrow::Cow;
 #[cfg(all(
     feature = "manage_clipboard",
     not(any(target_arch = "wasm32", target_os = "android"))
 ))]
 use std::cell::{RefCell, RefMut};
-use log::info;
 #[cfg(all(
     feature = "manage_clipboard",
     not(any(target_arch = "wasm32", target_os = "android"))
@@ -232,7 +232,6 @@ impl EguiClipboard {
 
     #[cfg(target_arch = "wasm32")]
     fn set_contents_impl(&mut self, contents: &str) {
-        info!("set_contents: {:?}", contents);
         web_clipboard::clipboard_copy(contents.to_owned());
     }
 
