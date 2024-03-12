@@ -14,7 +14,9 @@ use bevy::{
         touch::TouchInput,
         ButtonState,
     },
-    prelude::{Entity, EventReader, Query, Resource, Time},
+    log::info,
+    math::Vec2,
+    prelude::{Entity, EventReader, Ime, Query, Resource, Time},
     time::Real,
     window::{
         CursorEntered, CursorLeft, CursorMoved, ReceivedCharacter, RequestRedraw, WindowCreated,
@@ -22,8 +24,6 @@ use bevy::{
     },
 };
 use std::marker::PhantomData;
-use bevy::log::info;
-use bevy::prelude::Ime;
 
 #[allow(missing_docs)]
 #[derive(SystemParam)]
@@ -103,6 +103,7 @@ pub fn process_input_system(
     mut egui_mouse_position: ResMut<EguiMousePosition>,
     time: Res<Time<Real>>,
     mut lazy_paste: Local<bool>,
+    mut input_method_editor_started: Local<bool>,
 ) {
     // Test whether it's macOS or OS X.
     use std::sync::Once;
@@ -309,31 +310,35 @@ pub fn process_input_system(
             Ime::Preedit {
                 window,
                 value,
-                cursor: _,
+                cursor,
             } => {
-                push_ime_event(&mut context_params, window, egui::Event::CompositionStart);
+                if cursor.is_some(){
+                    if !*input_method_editor_started {
+                        *input_method_editor_started = true;
+                        push_ime_event(&mut context_params, window, egui::Event::CompositionStart);
+                    }
+                    push_ime_event(
+                        &mut context_params,
+                        window,
+                        egui::Event::CompositionUpdate(value.clone()),
+                    );
+                }
+            }
+            Ime::Commit { window, value } => {
+                *input_method_editor_started = false;
+                dbg!(value);
                 push_ime_event(
                     &mut context_params,
                     window,
-                    egui::Event::CompositionUpdate(value.clone()),
-                );
-            }
-            Ime::Commit { window, value } => push_ime_event(
-                &mut context_params,
-                window,
-                egui::Event::CompositionEnd(value.clone()),
-            ),
+                    egui::Event::CompositionEnd(value.clone()),
+                )
+            },
             Ime::Enabled { window } => {
-                push_ime_event(&mut context_params, window, egui::Event::CompositionStart)
             }
-            Ime::Disabled { window } => push_ime_event(
-                &mut context_params,
-                window,
-                egui::Event::CompositionEnd("".to_string()),
-            ),
+            Ime::Disabled { window } => {
+            }
         }
     }
-
 
     if let Some(mut focused_input) = context_params
         .focused_window
@@ -353,9 +358,7 @@ pub fn process_input_system(
                 //可能要等待的不只是一个帧
                 if let Some(contents) = input_resources.egui_clipboard.get_contents() {
                     info!("lazy paste event: {}", &contents);
-                    focused_input
-                        .events
-                        .push(egui::Event::Text(contents));
+                    focused_input.events.push(egui::Event::Text(contents));
                     *lazy_paste = false;
                 }
             }
@@ -421,10 +424,10 @@ pub fn process_input_system(
                 force: match touch.force {
                     Some(bevy::input::touch::ForceTouch::Normalized(force)) => Some(force as f32),
                     Some(bevy::input::touch::ForceTouch::Calibrated {
-                             force,
-                             max_possible_force,
-                             ..
-                         }) => Some((force / max_possible_force) as f32),
+                        force,
+                        max_possible_force,
+                        ..
+                    }) => Some((force / max_possible_force) as f32),
                     None => None,
                 },
             });
@@ -556,6 +559,12 @@ pub fn process_output_system(
             viewport_output: _,
         } = full_output;
         let paint_jobs = ctx.tessellate(shapes, pixels_per_point);
+
+        if let Some(ime) = context.egui_output.platform_output.ime {
+            // context.window.ime_enabled = true;
+            let pos = ime.cursor_rect.center_bottom();
+            context.window.ime_position = Vec2::new(pos.x, pos.y);
+        }
 
         context.render_output.paint_jobs = paint_jobs;
         context.render_output.textures_delta.append(textures_delta);

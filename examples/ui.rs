@@ -25,7 +25,7 @@ fn main() {
         title: "布置平台".into(),
         // present_mode: PresentMode::Fifo,
         // canvas: Some("#rs-plant".to_string()),
-        prevent_default_event_handling: true,
+        // prevent_default_event_handling: true,
         ..Default::default()
     };
     App::new()
