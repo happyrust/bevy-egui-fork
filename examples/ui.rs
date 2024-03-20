@@ -1,5 +1,5 @@
 use bevy::{prelude::*, window::PrimaryWindow};
-use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiSettings};
+use bevy_egui::{EguiContexts, EguiPlugin, EguiSettings};
 
 struct Images {
     bevy_icon: Handle<Image>,
@@ -25,7 +25,7 @@ fn main() {
         title: "布置平台".into(),
         // present_mode: PresentMode::Fifo,
         // canvas: Some("#rs-plant".to_string()),
-        // prevent_default_event_handling: true,
+        prevent_default_event_handling: false,
         ..Default::default()
     };
     App::new()
@@ -36,11 +36,11 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .insert_resource(Msaa::Sample4)
         .init_resource::<UiState>()
-        // .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin)
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, configure_ui_state_system)
-        // .add_systems(Update, update_ui_scale_factor_system)
+        .add_systems(Update, update_ui_scale_factor_system)
         .add_systems(Update, ui_example_system)
         .run();
 }
@@ -61,12 +61,8 @@ fn configure_visuals_system(mut contexts: EguiContexts) {
     });
 }
 
-fn configure_ui_state_system(
-    mut ui_state: ResMut<UiState>,
-    mut egui_settings: ResMut<EguiSettings>,
-) {
+fn configure_ui_state_system(mut ui_state: ResMut<UiState>) {
     ui_state.is_window_open = true;
-    egui_settings.scale_factor = 1.0;
 }
 
 fn update_ui_scale_factor_system(
@@ -84,8 +80,7 @@ fn update_ui_scale_factor_system(
             } else {
                 1.0 / window.scale_factor()
             };
-            dbg!(scale_factor);
-            egui_settings.scale_factor = scale_factor as _;
+            egui_settings.scale_factor = scale_factor;
         }
     }
 }

@@ -116,7 +116,7 @@ pub fn process_input_system(
         if let Some(window) = web_sys::window() {
             let nav = window.navigator();
             if let Ok(user_agent) = nav.user_agent() {
-                if user_agent.to_ascii_lowercase().contains("Mac") {
+                if user_agent.to_ascii_lowercase().contains("mac") {
                     *context_params.is_macos = true;
                 }
             }
@@ -146,7 +146,6 @@ pub fn process_input_system(
             None
         };
     }
-
     let mut keyboard_input_events = Vec::new();
     for event in input_events.ev_keyboard_input.read() {
         // Copy the events as we might want to pass them to an Egui context later.
@@ -165,7 +164,7 @@ pub fn process_input_system(
             Key::Alt => {
                 input_resources.modifier_keys_state.alt = state.is_pressed();
             }
-            Key::Super => {
+            Key::Super | Key::Meta => {
                 input_resources.modifier_keys_state.win = state.is_pressed();
             }
             _ => {}
@@ -379,28 +378,44 @@ pub fn process_input_system(
 
                 // We also check that it's an `ButtonState::Pressed` event, as we don't want to
                 // copy, cut or paste on the key release.
-                #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
-                {
-                    if command && ev.state.is_pressed() {
-                        match key {
-                            egui::Key::C => {
-                                // info!("copy event");
-                                // #[cfg(not(target_arch = "wasm32"))]
-                                focused_input.events.push(egui::Event::Copy);
-                            }
-                            egui::Key::X => {
-                                // info!("cut event");
-                                // #[cfg(not(target_arch = "wasm32"))]
-                                focused_input.events.push(egui::Event::Cut);
-                            }
-                            egui::Key::V => {
-                                //有可能执行这个逻辑时，还没有获取到剪切板内容，所以这里需要加个下一帧再去获取的逻辑
-                                //在下一帧处理粘贴到 egui 的逻辑
-                                *lazy_paste = true;
+                #[cfg(all(
+                    feature = "manage_clipboard",
+                    not(target_os = "android"),
+                    not(target_arch = "wasm32")
+                ))]
+                if command && ev.state.is_pressed() {
+                    match key {
+                        egui::Key::C => {
+                            focused_input.events.push(egui::Event::Copy);
+                        }
+                        egui::Key::X => {
+                            focused_input.events.push(egui::Event::Cut);
+                        }
+                        egui::Key::V => {
+                            if let Some(contents) = input_resources.egui_clipboard.get_contents() {
+                                focused_input.events.push(egui::Event::Text(contents))
                             }
                             _ => {}
                         }
                     }
+                }
+            }
+        }
+
+        #[cfg(all(feature = "manage_clipboard", target_arch = "wasm32"))]
+        while let Some(event) = input_resources.egui_clipboard.try_receive_clipboard_event() {
+            match event {
+                crate::web_clipboard::WebClipboardEvent::Copy => {
+                    focused_input.events.push(egui::Event::Copy);
+                }
+                crate::web_clipboard::WebClipboardEvent::Cut => {
+                    focused_input.events.push(egui::Event::Cut);
+                }
+                crate::web_clipboard::WebClipboardEvent::Paste(contents) => {
+                    input_resources
+                        .egui_clipboard
+                        .set_contents_internal(&contents);
+                    focused_input.events.push(egui::Event::Text(contents))
                 }
             }
         }
