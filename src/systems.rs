@@ -395,8 +395,9 @@ pub fn process_input_system(
                             if let Some(contents) = input_resources.egui_clipboard.get_contents() {
                                 focused_input.events.push(egui::Event::Text(contents))
                             }
-                            _ => {}
+                            // _ => {}
                         }
+                        _ => {}
                     }
                 }
             }
