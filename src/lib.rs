@@ -832,7 +832,7 @@ fn free_egui_textures_system(
             if let egui::TextureId::Managed(texture_id) = texture_id {
                 let managed_texture = egui_managed_textures.remove(&(window_id, texture_id));
                 if let Some(managed_texture) = managed_texture {
-                    image_assets.remove(managed_texture.handle);
+                    image_assets.remove(managed_texture.handle.id());
                 }
             }
         }
