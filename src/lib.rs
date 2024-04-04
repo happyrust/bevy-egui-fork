@@ -50,6 +50,13 @@
 //!
 //! - [`bevy-inspector-egui`](https://github.com/jakobhellermann/bevy-inspector-egui)
 
+#[cfg(all(
+    feature = "manage_clipboard",
+    target_arch = "wasm32",
+    not(web_sys_unstable_apis)
+))]
+compile_error!(include_str!("../static/error_web_sys_unstable_apis.txt"));
+
 /// Egui render node.
 #[cfg(feature = "render")]
 pub mod egui_node;
@@ -59,7 +66,11 @@ pub mod render_systems;
 /// Plugin systems.
 pub mod systems;
 /// Clipboard management for web
-#[cfg(all(feature = "manage_clipboard", target_arch = "wasm32"))]
+#[cfg(all(
+    feature = "manage_clipboard",
+    target_arch = "wasm32",
+    web_sys_unstable_apis
+))]
 pub mod web_clipboard;
 
 pub use egui;
@@ -178,11 +189,15 @@ pub struct EguiInput(pub egui::RawInput);
 pub struct EguiClipboard {
     #[cfg(not(target_arch = "wasm32"))]
     clipboard: thread_local::ThreadLocal<Option<RefCell<Clipboard>>>,
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", web_sys_unstable_apis))]
     clipboard: web_clipboard::WebClipboard,
 }
 
-#[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
+#[cfg(all(
+    feature = "manage_clipboard",
+    not(target_os = "android"),
+    not(all(target_arch = "wasm32", not(web_sys_unstable_apis)))
+))]
 impl EguiClipboard {
     /// Sets clipboard contents.
     pub fn set_contents(&mut self, contents: &str) {
@@ -191,7 +206,7 @@ impl EguiClipboard {
 
     /// Sets the internal buffer of clipboard contents.
     /// This buffer is used to remember the contents of the last "Paste" event.
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", web_sys_unstable_apis))]
     pub fn set_contents_internal(&mut self, contents: &str) {
         self.clipboard.set_contents_internal(contents);
     }
@@ -205,13 +220,13 @@ impl EguiClipboard {
 
     /// Gets clipboard contents. Returns [`None`] if clipboard provider is unavailable or returns an error.
     #[must_use]
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", web_sys_unstable_apis))]
     pub fn get_contents(&mut self) -> Option<String> {
         self.get_contents_impl()
     }
 
     /// Receives a clipboard event sent by the `copy`/`cut`/`paste` listeners.
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", web_sys_unstable_apis))]
     pub fn try_receive_clipboard_event(&self) -> Option<web_clipboard::WebClipboardEvent> {
         self.clipboard.try_receive_clipboard_event()
     }
@@ -225,7 +240,7 @@ impl EguiClipboard {
         }
     }
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", web_sys_unstable_apis))]
     fn set_contents_impl(&mut self, contents: &str) {
         self.clipboard.set_contents(contents);
     }
@@ -241,7 +256,7 @@ impl EguiClipboard {
         None
     }
 
-    #[cfg(target_arch = "wasm32")]
+    #[cfg(all(target_arch = "wasm32", web_sys_unstable_apis))]
     #[allow(clippy::unnecessary_wraps)]
     fn get_contents_impl(&mut self) -> Option<String> {
         self.clipboard.get_contents()
@@ -286,7 +301,11 @@ pub struct EguiOutput {
 /// A component for storing `bevy_egui` context.
 #[derive(Clone, Component, Default)]
 #[cfg_attr(feature = "render", derive(ExtractComponent))]
-pub struct EguiContext(egui::Context);
+pub struct EguiContext {
+    ctx: egui::Context,
+    mouse_position: egui::Pos2,
+    pointer_touch_id: Option<u64>,
+}
 
 impl EguiContext {
     /// Borrows the underlying Egui context immutably.
@@ -301,7 +320,7 @@ impl EguiContext {
     #[cfg(feature = "immutable_ctx")]
     #[must_use]
     pub fn get(&self) -> &egui::Context {
-        &self.0
+        &self.ctx
     }
 
     /// Borrows the underlying Egui context mutably.
@@ -315,7 +334,7 @@ impl EguiContext {
     /// instead of busy-waiting.
     #[must_use]
     pub fn get_mut(&mut self) -> &mut egui::Context {
-        &mut self.0
+        &mut self.ctx
     }
 }
 
@@ -341,23 +360,29 @@ impl<'w, 's> EguiContexts<'w, 's> {
     /// Egui context of the primary window.
     #[must_use]
     pub fn ctx_mut(&mut self) -> &mut egui::Context {
-        let (_window, ctx, _primary_window) = self
-            .q
-            .iter_mut()
-            .find(|(_window_entity, _ctx, primary_window)| primary_window.is_some())
-            .expect("`EguiContexts::ctx_mut` was called for an uninitialized context (primary window), make sure your system is run after [`EguiSet::InitContexts`] (or [`EguiStartupSet::InitContexts`] for startup systems)");
-        ctx.into_inner().get_mut()
+        self.try_ctx_mut()
+            .expect("`EguiContexts::ctx_mut` was called for an uninitialized context (primary window), make sure your system is run after [`EguiSet::InitContexts`] (or [`EguiStartupSet::InitContexts`] for startup systems)")
     }
 
-    /// Egui context for a specific window.
+    /// Fallible variant of [`EguiContexts::ctx_mut`].
+    #[must_use]
+    pub fn try_ctx_mut(&mut self) -> Option<&mut egui::Context> {
+        self.q
+            .iter_mut()
+            .find_map(|(_window_entity, ctx, primary_window)| {
+                if primary_window.is_some() {
+                    Some(ctx.into_inner().get_mut())
+                } else {
+                    None
+                }
+            })
+    }
+
+    /// Egui context of a specific window.
     #[must_use]
     pub fn ctx_for_window_mut(&mut self, window: Entity) -> &mut egui::Context {
-        let (_window, ctx, _primary_window) = self
-            .q
-            .iter_mut()
-            .find(|(window_entity, _ctx, _primary_window)| *window_entity == window)
-            .unwrap_or_else(|| panic!("`EguiContexts::ctx_for_window_mut` was called for an uninitialized context (window {window:?}), make sure your system is run after [`EguiSet::InitContexts`] (or [`EguiStartupSet::InitContexts`] for startup systems)"));
-        ctx.into_inner().get_mut()
+        self.try_ctx_for_window_mut(window)
+            .unwrap_or_else(|| panic!("`EguiContexts::ctx_for_window_mut` was called for an uninitialized context (window {window:?}), make sure your system is run after [`EguiSet::InitContexts`] (or [`EguiStartupSet::InitContexts`] for startup systems)"))
     }
 
     /// Fallible variant of [`EguiContexts::ctx_for_window_mut`].
@@ -399,15 +424,34 @@ impl<'w, 's> EguiContexts<'w, 's> {
     #[cfg(feature = "immutable_ctx")]
     #[must_use]
     pub fn ctx(&self) -> &egui::Context {
-        let (_window, ctx, _primary_window) = self
-            .q
-            .iter()
-            .find(|(_window_entity, _ctx, primary_window)| primary_window.is_some())
-            .expect("`EguiContexts::ctx` was called for an uninitialized context (primary window), make sure your system is run after [`EguiSet::InitContexts`] (or [`EguiStartupSet::InitContexts`] for startup systems)");
-        ctx.get()
+        self.try_ctx()
+            .expect("`EguiContexts::ctx` was called for an uninitialized context (primary window), make sure your system is run after [`EguiSet::InitContexts`] (or [`EguiStartupSet::InitContexts`] for startup systems)")
     }
 
-    /// Egui context for a specific window.
+    /// Fallible variant of [`EguiContexts::ctx`].
+    ///
+    /// Even though the mutable borrow isn't necessary, as the context is wrapped into `RwLock`,
+    /// using the immutable getter is gated with the `immutable_ctx` feature. Using the immutable
+    /// borrow is discouraged as it may cause unpredictable blocking in UI systems.
+    ///
+    /// When the context is queried with `&mut EguiContext`, the Bevy scheduler is able to make
+    /// sure that the context isn't accessed concurrently and can perform other useful work
+    /// instead of busy-waiting.
+    #[cfg(feature = "immutable_ctx")]
+    #[must_use]
+    pub fn try_ctx(&self) -> Option<&egui::Context> {
+        self.q
+            .iter()
+            .find_map(|(_window_entity, ctx, primary_window)| {
+                if primary_window.is_some() {
+                    Some(ctx.get())
+                } else {
+                    None
+                }
+            })
+    }
+
+    /// Egui context of a specific window.
     ///
     /// Even though the mutable borrow isn't necessary, as the context is wrapped into `RwLock`,
     /// using the immutable getter is gated with the `immutable_ctx` feature. Using the immutable
@@ -419,12 +463,8 @@ impl<'w, 's> EguiContexts<'w, 's> {
     #[must_use]
     #[cfg(feature = "immutable_ctx")]
     pub fn ctx_for_window(&self, window: Entity) -> &egui::Context {
-        let (_window, ctx, _primary_window) = self
-            .q
-            .iter()
-            .find(|(window_entity, _ctx, _primary_window)| *window_entity == window)
-            .unwrap_or_else(|| panic!("`EguiContexts::ctx_for_window` was called for an uninitialized context (window {window:?}), make sure your system is run after [`EguiSet::InitContexts`] (or [`EguiStartupSet::InitContexts`] for startup systems)"));
-        ctx.get()
+        self.try_ctx_for_window(window)
+            .unwrap_or_else(|| panic!("`EguiContexts::ctx_for_window` was called for an uninitialized context (window {window:?}), make sure your system is run after [`EguiSet::InitContexts`] (or [`EguiStartupSet::InitContexts`] for startup systems)"))
     }
 
     /// Fallible variant of [`EguiContexts::ctx_for_window_mut`].
@@ -478,10 +518,6 @@ impl<'w, 's> EguiContexts<'w, 's> {
         self.user_textures.image_id(image)
     }
 }
-
-/// A resource for storing `bevy_egui` mouse position.
-#[derive(Resource, Component, Default, Deref, DerefMut)]
-pub struct EguiMousePosition(pub Option<(Entity, egui::Vec2)>);
 
 /// A resource for storing `bevy_egui` user textures.
 #[derive(Clone, Resource, Default, ExtractResource)]
@@ -600,12 +636,14 @@ impl Plugin for EguiPlugin {
         world.init_resource::<EguiManagedTextures>();
         #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
         world.init_resource::<EguiClipboard>();
-        #[cfg(all(feature = "manage_clipboard", target_arch = "wasm32"))]
+        #[cfg(all(
+            feature = "manage_clipboard",
+            target_arch = "wasm32",
+            web_sys_unstable_apis
+        ))]
         world.init_non_send_resource::<web_clipboard::SubscribedEvents>();
         #[cfg(feature = "render")]
         world.init_resource::<EguiUserTextures>();
-        world.init_resource::<EguiMousePosition>();
-        world.insert_resource(TouchId::default());
         #[cfg(feature = "render")]
         app.add_plugins(ExtractResourcePlugin::<EguiUserTextures>::default());
         #[cfg(feature = "render")]
@@ -619,7 +657,11 @@ impl Plugin for EguiPlugin {
         #[cfg(feature = "render")]
         app.add_plugins(ExtractComponentPlugin::<EguiRenderOutput>::default());
 
-        #[cfg(all(feature = "manage_clipboard", target_arch = "wasm32"))]
+        #[cfg(all(
+            feature = "manage_clipboard",
+            target_arch = "wasm32",
+            web_sys_unstable_apis
+        ))]
         app.add_systems(PreStartup, web_clipboard::startup_setup_web_events);
         app.add_systems(
             PreStartup,
@@ -751,7 +793,6 @@ pub fn setup_new_windows_system(
     for window in new_windows.iter() {
         commands.entity(window).insert((
             EguiContext::default(),
-            EguiMousePosition::default(),
             EguiRenderOutput::default(),
             EguiInput::default(),
             EguiOutput::default(),
@@ -843,14 +884,6 @@ fn free_egui_textures_system(
             egui_user_textures.remove_image(&Handle::<Image>::Weak(*id));
         }
     }
-}
-
-/// Egui's render graph config.
-pub struct RenderGraphConfig {
-    /// Target window.
-    pub window: Entity,
-    /// Render pass name.
-    pub egui_pass: Cow<'static, str>,
 }
 
 #[cfg(test)]
