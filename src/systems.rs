@@ -14,7 +14,6 @@ use bevy::{
         ButtonState,
     },
     log,
-    prelude::{Entity, EventReader, Query, Resource, Time},
     log::info,
     math::Vec2,
     prelude::{Entity, EventReader, Ime, Query, Resource, Time},
@@ -63,9 +62,9 @@ pub struct ModifierKeysState {
 #[derive(SystemParam)]
 pub struct InputResources<'w, 's> {
     #[cfg(all(
-        feature = "manage_clipboard",
-        not(target_os = "android"),
-        not(all(target_arch = "wasm32", not(web_sys_unstable_apis)))
+    feature = "manage_clipboard",
+    not(target_os = "android"),
+    not(all(target_arch = "wasm32", not(web_sys_unstable_apis)))
     ))]
     pub egui_clipboard: bevy::ecs::system::ResMut<'w, crate::EguiClipboard>,
     pub modifier_keys_state: Local<'s, ModifierKeysState>,
@@ -107,7 +106,6 @@ pub fn process_input_system(
     mut context_params: ContextSystemParams,
     egui_settings: Res<EguiSettings>,
     time: Res<Time<Real>>,
-    mut lazy_paste: Local<bool>,
     mut input_method_editor_started: Local<bool>,
 ) {
     // Test whether it's macOS or OS X.
@@ -261,7 +259,7 @@ pub fn process_input_system(
         }
     }
 
-        fn push_ime_event(params: &mut ContextSystemParams, window: &Entity, event: egui::Event) {
+    fn push_ime_event(params: &mut ContextSystemParams, window: &Entity, event: egui::Event) {
         params
             .contexts
             .get_mut(*window)
@@ -295,9 +293,9 @@ pub fn process_input_system(
         // We also check that it's an `ButtonState::Pressed` event, as we don't want to
         // copy, cut or paste on the key release.
         #[cfg(all(
-            feature = "manage_clipboard",
-            not(target_os = "android"),
-            not(target_arch = "wasm32")
+        feature = "manage_clipboard",
+        not(target_os = "android"),
+        not(target_arch = "wasm32")
         ))]
         if command && event.state.is_pressed() {
             match key {
@@ -320,10 +318,44 @@ pub fn process_input_system(
         }
     }
 
+    for ev in input_events.ev_ime_input.read() {
+        match ev {
+            Ime::Preedit {
+                window,
+                value,
+                cursor,
+            } => {
+                if cursor.is_some(){
+                    if !*input_method_editor_started {
+                        *input_method_editor_started = true;
+                        push_ime_event(&mut context_params, window, egui::Event::CompositionStart);
+                    }
+                    push_ime_event(
+                        &mut context_params,
+                        window,
+                        egui::Event::CompositionUpdate(value.clone()),
+                    );
+                }
+            }
+            Ime::Commit { window, value } => {
+                *input_method_editor_started = false;
+                push_ime_event(
+                    &mut context_params,
+                    window,
+                    egui::Event::CompositionEnd(value.clone()),
+                )
+            },
+            Ime::Enabled { window } => {
+            }
+            Ime::Disabled { window } => {
+            }
+        }
+    }
+
     #[cfg(all(
-        feature = "manage_clipboard",
-        target_arch = "wasm32",
-        web_sys_unstable_apis
+    feature = "manage_clipboard",
+    target_arch = "wasm32",
+    web_sys_unstable_apis
     ))]
     while let Some(event) = input_resources.egui_clipboard.try_receive_clipboard_event() {
         // In web, we assume that we have only 1 window per app.
@@ -371,10 +403,10 @@ pub fn process_input_system(
             force: match event.force {
                 Some(bevy::input::touch::ForceTouch::Normalized(force)) => Some(force as f32),
                 Some(bevy::input::touch::ForceTouch::Calibrated {
-                    force,
-                    max_possible_force,
-                    ..
-                }) => Some((force / max_possible_force) as f32),
+                         force,
+                         max_possible_force,
+                         ..
+                     }) => Some((force / max_possible_force) as f32),
                 None => None,
             },
         });
@@ -530,9 +562,9 @@ pub fn process_output_system(
         context.egui_output.platform_output = platform_output.clone();
 
         #[cfg(all(
-            feature = "manage_clipboard",
-            not(target_os = "android"),
-            not(all(target_arch = "wasm32", not(web_sys_unstable_apis)))
+        feature = "manage_clipboard",
+        not(target_os = "android"),
+        not(all(target_arch = "wasm32", not(web_sys_unstable_apis)))
         ))]
         if !platform_output.copied_text.is_empty() {
             egui_clipboard.set_contents(&platform_output.copied_text);
