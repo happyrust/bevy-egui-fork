@@ -19,6 +19,7 @@ use bevy::{
     },
     utils::HashMap,
 };
+use bevy::render::texture::GpuImage;
 
 /// Extracted Egui settings.
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -188,7 +189,7 @@ pub fn queue_bind_groups_system(
     mut commands: Commands,
     egui_textures: ExtractedEguiTextures,
     render_device: Res<RenderDevice>,
-    gpu_images: Res<RenderAssets<Image>>,
+    gpu_images: Res<RenderAssets<GpuImage>>,
     egui_pipeline: Res<EguiPipeline>,
 ) {
     let bind_groups = egui_textures

@@ -630,7 +630,7 @@ impl Plugin for EguiPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<EguiSettings>();
 
-        let world = &mut app.world;
+        let world = app.world_mut();
         world.init_resource::<EguiSettings>();
         #[cfg(feature = "render")]
         world.init_resource::<EguiManagedTextures>();
@@ -726,7 +726,7 @@ impl Plugin for EguiPlugin {
 
     #[cfg(feature = "render")]
     fn finish(&self, app: &mut App) {
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<egui_node::EguiPipeline>()
                 .init_resource::<SpecializedRenderPipelines<EguiPipeline>>()
