@@ -259,14 +259,14 @@ pub fn process_input_system(
         }
     }
 
-    fn push_ime_event(params: &mut ContextSystemParams, window: &Entity, event: egui::Event) {
+    fn push_ime_event(params: &mut ContextSystemParams, window: &Entity, event: egui::ImeEvent) {
         params
             .contexts
             .get_mut(*window)
             .unwrap()
             .egui_input
             .events
-            .push(event);
+            .push(egui::Event::Ime(event));
     }
 
     for event in keyboard_input_events {
@@ -328,12 +328,12 @@ pub fn process_input_system(
                 if cursor.is_some(){
                     if !*input_method_editor_started {
                         *input_method_editor_started = true;
-                        push_ime_event(&mut context_params, window, egui::Event::CompositionStart);
+                        push_ime_event(&mut context_params, window, egui::ImeEvent::Enabled);
                     }
                     push_ime_event(
                         &mut context_params,
                         window,
-                        egui::Event::CompositionUpdate(value.clone()),
+                        egui::ImeEvent::Preedit(value.clone()),
                     );
                 }
             }
@@ -342,12 +342,22 @@ pub fn process_input_system(
                 push_ime_event(
                     &mut context_params,
                     window,
-                    egui::Event::CompositionEnd(value.clone()),
+                    egui::ImeEvent::Commit(value.clone()),
                 )
             },
             Ime::Enabled { window } => {
+                push_ime_event(
+                    &mut context_params,
+                    window,
+                    egui::ImeEvent::Enabled,
+                );
             }
             Ime::Disabled { window } => {
+                push_ime_event(
+                    &mut context_params,
+                    window,
+                    egui::ImeEvent::Disabled,
+                );
             }
         }
     }
