@@ -421,7 +421,7 @@ pub fn process_input_system(
             },
         });
 
-        // If we're not yet tanslating a touch, or we're translating this very
+        // If we're not yet translating a touch, or we're translating this very
         // touch, …
         if window_context.ctx.pointer_touch_id.is_none()
             || window_context.ctx.pointer_touch_id.unwrap() == event.id
@@ -486,6 +486,7 @@ pub fn process_input_system(
     }
 
     for mut context in context_params.contexts.iter_mut() {
+        context.egui_input.modifiers = modifiers;
         context.egui_input.time = Some(time.elapsed_seconds_f64());
     }
 
@@ -548,6 +549,8 @@ pub fn process_output_system(
     mut event: EventWriter<RequestRedraw>,
     #[cfg(windows)] mut last_cursor_icon: Local<bevy::utils::HashMap<Entity, egui::CursorIcon>>,
 ) {
+    let mut should_request_redraw = false;
+
     for mut context in contexts.iter_mut() {
         let ctx = context.ctx.get_mut();
         let full_output = ctx.end_frame();
@@ -596,9 +599,8 @@ pub fn process_output_system(
         #[cfg(not(windows))]
         set_icon();
 
-        if ctx.has_requested_repaint() {
-            event.send(RequestRedraw);
-        }
+        let needs_repaint = !context.render_output.is_empty();
+        should_request_redraw |= ctx.has_requested_repaint() && needs_repaint;
 
         #[cfg(feature = "open_url")]
         if let Some(egui::output::OpenUrl { url, new_tab }) = platform_output.open_url {
@@ -618,6 +620,10 @@ pub fn process_output_system(
                 log::error!("Failed to open '{}': {:?}", url, err);
             }
         }
+    }
+
+    if should_request_redraw {
+        event.send(RequestRedraw);
     }
 }
 
