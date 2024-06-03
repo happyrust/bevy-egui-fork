@@ -21,6 +21,7 @@ use bevy::{
     window::{CursorMoved, ReceivedCharacter, RequestRedraw},
 };
 use std::marker::PhantomData;
+use egui::MouseWheelUnit;
 
 #[allow(missing_docs)]
 #[derive(SystemParam)]
@@ -235,12 +236,30 @@ pub fn process_input_system(
             window_context
                 .egui_input
                 .events
-                .push(egui::Event::Scroll(egui::vec2(delta.x + delta.y, 0.0)));
+                .push(egui::Event::MouseWheel {
+                    unit: if event.unit == MouseScrollUnit::Line {
+                        MouseWheelUnit::Line
+                    } else {
+                        MouseWheelUnit::Point
+                    },
+                    delta: egui::vec2(delta.x + delta.y, 0.0),
+                    modifiers,
+                });
+            // .push(egui::Event::Scroll(egui::vec2(delta.x + delta.y, 0.0)));
         } else {
             window_context
                 .egui_input
                 .events
-                .push(egui::Event::Scroll(delta));
+                .push(egui::Event::MouseWheel {
+                    unit: if event.unit == MouseScrollUnit::Line {
+                        MouseWheelUnit::Line
+                    } else {
+                        MouseWheelUnit::Point
+                    },
+                    delta,
+                    modifiers,
+                });
+            // .push(egui::Event::Scroll(delta));
         }
     }
 
@@ -325,7 +344,7 @@ pub fn process_input_system(
                 value,
                 cursor,
             } => {
-                if cursor.is_some(){
+                if cursor.is_some() {
                     if !*input_method_editor_started {
                         *input_method_editor_started = true;
                         push_ime_event(&mut context_params, window, egui::ImeEvent::Enabled);
@@ -344,7 +363,7 @@ pub fn process_input_system(
                     window,
                     egui::ImeEvent::Commit(value.clone()),
                 )
-            },
+            }
             Ime::Enabled { window } => {
                 push_ime_event(
                     &mut context_params,
