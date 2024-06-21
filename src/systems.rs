@@ -218,10 +218,10 @@ pub fn process_input_system(
         };
 
         let mut delta = egui::vec2(event.x, event.y);
-        if let MouseScrollUnit::Line = event.unit {
-            // https://github.com/emilk/egui/blob/a689b623a669d54ea85708a8c748eb07e23754b0/egui-winit/src/lib.rs#L449
-            delta *= 50.0;
-        }
+        // if let MouseScrollUnit::Line = event.unit {
+        //     // https://github.com/emilk/egui/blob/a689b623a669d54ea85708a8c748eb07e23754b0/egui-winit/src/lib.rs#L449
+        //     delta *= 50.0;
+        // }
 
         if ctrl || mac_cmd {
             // Treat as zoom instead.
@@ -242,10 +242,9 @@ pub fn process_input_system(
                     } else {
                         MouseWheelUnit::Point
                     },
-                    delta: egui::vec2(delta.x + delta.y, 0.0),
+                    delta: egui::vec2(delta.y, 0.0),
                     modifiers,
                 });
-            // .push(egui::Event::Scroll(egui::vec2(delta.x + delta.y, 0.0)));
         } else {
             window_context
                 .egui_input
