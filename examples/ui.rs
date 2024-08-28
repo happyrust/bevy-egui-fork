@@ -21,21 +21,17 @@ impl FromWorld for Images {
 /// - toggling hidpi scaling (by pressing '/' button);
 /// - configuring egui contexts during the startup.
 fn main() {
-    let mut window = Window {
-        title: "布置平台".into(),
-        // present_mode: PresentMode::Fifo,
-        // canvas: Some("#rs-plant".to_string()),
-        prevent_default_event_handling: false,
-        ..Default::default()
-    };
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(window),
-            ..Default::default()
-        }))
-        .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
+        .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(Msaa::Sample4)
         .init_resource::<UiState>()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                prevent_default_event_handling: false,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugins(EguiPlugin)
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, configure_ui_state_system)
@@ -239,7 +235,7 @@ impl Default for Painting {
 impl Painting {
     pub fn ui_control(&mut self, ui: &mut egui::Ui) -> egui::Response {
         ui.horizontal(|ui| {
-            egui::stroke_ui(ui, &mut self.stroke, "Stroke");
+            ui.add(&mut self.stroke);
             ui.separator();
             if ui.button("Clear Painting").clicked() {
                 self.lines.clear();

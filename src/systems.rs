@@ -1,6 +1,11 @@
+#[cfg(feature = "render")]
+use crate::EguiRenderToTextureHandle;
 use crate::{
-    EguiContext, EguiContextQuery, EguiContextQueryItem, EguiInput, EguiSettings, WindowSize,
+    EguiContext, EguiContextQuery, EguiContextQueryItem, EguiInput, EguiSettings, RenderTargetSize,
 };
+
+#[cfg(feature = "render")]
+use bevy::{asset::Assets, render::texture::Image};
 use bevy::{
     ecs::{
         event::EventWriter,
@@ -8,20 +13,18 @@ use bevy::{
         system::{Local, Res, SystemParam},
     },
     input::{
-        keyboard::{Key, KeyCode, KeyboardInput},
+        keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput},
         mouse::{MouseButton, MouseButtonInput, MouseScrollUnit, MouseWheel},
         touch::TouchInput,
         ButtonState,
     },
-    log,
-    log::info,
-    math::Vec2,
-    prelude::{Entity, EventReader, Ime, Query, Resource, Time},
+    log::{self, error},
+    prelude::{Entity, EventReader, NonSend, Query, Resource, Time},
     time::Real,
-    window::{CursorMoved, ReceivedCharacter, RequestRedraw},
+    window::{CursorMoved, RequestRedraw},
+    winit::{EventLoopProxy, WakeUp},
 };
-use std::marker::PhantomData;
-use egui::MouseWheelUnit;
+use std::{marker::PhantomData, time::Duration};
 
 #[allow(missing_docs)]
 #[derive(SystemParam)]
@@ -30,22 +33,22 @@ pub struct InputEvents<'w, 's> {
     pub ev_cursor: EventReader<'w, 's, CursorMoved>,
     pub ev_mouse_button_input: EventReader<'w, 's, MouseButtonInput>,
     pub ev_mouse_wheel: EventReader<'w, 's, MouseWheel>,
-    pub ev_received_character: EventReader<'w, 's, ReceivedCharacter>,
     pub ev_keyboard_input: EventReader<'w, 's, KeyboardInput>,
     pub ev_touch: EventReader<'w, 's, TouchInput>,
     pub ev_ime_input: EventReader<'w, 's, Ime>,
+    pub ev_focus: EventReader<'w, 's, KeyboardFocusLost>,
 }
 
 impl<'w, 's> InputEvents<'w, 's> {
     /// Consumes all the events.
     pub fn clear(&mut self) {
-        self.ev_cursor.read().last();
-        self.ev_mouse_button_input.read().last();
-        self.ev_mouse_wheel.read().last();
-        self.ev_received_character.read().last();
-        self.ev_keyboard_input.read().last();
-        self.ev_touch.read().last();
-        self.ev_ime_input.read().last();
+        self.ev_cursor.clear();
+        self.ev_mouse_button_input.clear();
+        self.ev_mouse_wheel.clear();
+        self.ev_keyboard_input.clear();
+        self.ev_touch.clear();
+        self.ev_focus.clear();
+        self.ev_ime_input.clear();
     }
 }
 
@@ -63,9 +66,9 @@ pub struct ModifierKeysState {
 #[derive(SystemParam)]
 pub struct InputResources<'w, 's> {
     #[cfg(all(
-    feature = "manage_clipboard",
-    not(target_os = "android"),
-    not(all(target_arch = "wasm32", not(web_sys_unstable_apis)))
+        feature = "manage_clipboard",
+        not(target_os = "android"),
+        not(all(target_arch = "wasm32", not(web_sys_unstable_apis)))
     ))]
     pub egui_clipboard: bevy::ecs::system::ResMut<'w, crate::EguiClipboard>,
     pub modifier_keys_state: Local<'s, ModifierKeysState>,
@@ -152,6 +155,12 @@ pub fn process_input_system(
         };
     }
 
+    // If window focus is lost, clear all modifiers to avoid stuck keys.
+    if !input_events.ev_focus.is_empty() {
+        input_events.ev_focus.clear();
+        *input_resources.modifier_keys_state = Default::default();
+    }
+
     let ModifierKeysState {
         shift,
         ctrl,
@@ -217,64 +226,21 @@ pub fn process_input_system(
             continue;
         };
 
-        let mut delta = egui::vec2(event.x, event.y);
-        // if let MouseScrollUnit::Line = event.unit {
-        //     // https://github.com/emilk/egui/blob/a689b623a669d54ea85708a8c748eb07e23754b0/egui-winit/src/lib.rs#L449
-        //     delta *= 50.0;
-        // }
+        let delta = egui::vec2(event.x, event.y);
 
-        if ctrl || mac_cmd {
-            // Treat as zoom instead.
-            let factor = (delta.y / 200.0).exp();
-            window_context
-                .egui_input
-                .events
-                .push(egui::Event::Zoom(factor));
-        } else if shift {
-            // Treat as horizontal scrolling.
-            // Note: Mac already fires horizontal scroll events when shift is down.
-            window_context
-                .egui_input
-                .events
-                .push(egui::Event::MouseWheel {
-                    unit: if event.unit == MouseScrollUnit::Line {
-                        MouseWheelUnit::Line
-                    } else {
-                        MouseWheelUnit::Point
-                    },
-                    delta: egui::vec2(delta.y, 0.0),
-                    modifiers,
-                });
-        } else {
-            window_context
-                .egui_input
-                .events
-                .push(egui::Event::MouseWheel {
-                    unit: if event.unit == MouseScrollUnit::Line {
-                        MouseWheelUnit::Line
-                    } else {
-                        MouseWheelUnit::Point
-                    },
-                    delta,
-                    modifiers,
-                });
-            // .push(egui::Event::Scroll(delta));
-        }
-    }
+        let unit = match event.unit {
+            MouseScrollUnit::Line => egui::MouseWheelUnit::Line,
+            MouseScrollUnit::Pixel => egui::MouseWheelUnit::Point,
+        };
 
-    if !command && !win || !*context_params.is_macos && ctrl && alt {
-        for event in input_events.ev_received_character.read() {
-            let Some(mut window_context) = context_params.window_context(event.window) else {
-                continue;
-            };
-
-            if event.char.matches(char::is_control).count() == 0 {
-                window_context
-                    .egui_input
-                    .events
-                    .push(egui::Event::Text(event.char.to_string()));
-            }
-        }
+        window_context
+            .egui_input
+            .events
+            .push(egui::Event::MouseWheel {
+                unit,
+                delta,
+                modifiers,
+            });
     }
 
     fn push_ime_event(params: &mut ContextSystemParams, window: &Entity, event: egui::ImeEvent) {
@@ -288,9 +254,22 @@ pub fn process_input_system(
     }
 
     for event in keyboard_input_events {
+        let text_event_allowed = !command && !win || !*context_params.is_macos && ctrl && alt;
         let Some(mut window_context) = context_params.window_context(event.window) else {
             continue;
         };
+
+        if text_event_allowed && event.state.is_pressed() {
+            match &event.logical_key {
+                Key::Character(char) if char.matches(char::is_control).count() == 0 => {
+                    (window_context.egui_input.events).push(egui::Event::Text(char.to_string()));
+                }
+                Key::Space => {
+                    (window_context.egui_input.events).push(egui::Event::Text(" ".into()));
+                }
+                _ => (),
+            }
+        }
 
         let (Some(key), physical_key) = (
             bevy_to_egui_key(&event.logical_key),
@@ -514,21 +493,40 @@ pub fn process_input_system(
 }
 
 /// Initialises Egui contexts (for multiple windows).
-pub fn update_window_contexts_system(
+pub fn update_contexts_system(
     mut context_params: ContextSystemParams,
     egui_settings: Res<EguiSettings>,
+    #[cfg(feature = "render")] images: Res<Assets<Image>>,
 ) {
     for mut context in context_params.contexts.iter_mut() {
-        let new_window_size = WindowSize::new(
-            context.window.physical_width() as f32,
-            context.window.physical_height() as f32,
-            context.window.scale_factor(),
-        );
-        let width = new_window_size.physical_width
-            / new_window_size.scale_factor
+        let mut render_target_size = None;
+        if let Some(window) = context.window {
+            render_target_size = Some(RenderTargetSize::new(
+                window.physical_width() as f32,
+                window.physical_height() as f32,
+                window.scale_factor(),
+            ));
+        }
+        #[cfg(feature = "render")]
+        if let Some(EguiRenderToTextureHandle(handle)) = context.render_to_texture.as_deref() {
+            let image = images.get(handle).expect("rtt handle should be valid");
+            let size = image.size_f32();
+            render_target_size = Some(RenderTargetSize {
+                physical_width: size.x,
+                physical_height: size.y,
+                scale_factor: 1.0,
+            })
+        }
+
+        let Some(new_render_target_size) = render_target_size else {
+            error!("bevy_egui context without window or render to texture!");
+            continue;
+        };
+        let width = new_render_target_size.physical_width
+            / new_render_target_size.scale_factor
             / egui_settings.scale_factor;
-        let height = new_window_size.physical_height
-            / new_window_size.scale_factor
+        let height = new_render_target_size.physical_height
+            / new_render_target_size.scale_factor
             / egui_settings.scale_factor;
 
         if width < 1.0 || height < 1.0 {
@@ -543,9 +541,9 @@ pub fn update_window_contexts_system(
         context
             .ctx
             .get_mut()
-            .set_pixels_per_point(new_window_size.scale_factor * egui_settings.scale_factor);
+            .set_pixels_per_point(new_render_target_size.scale_factor * egui_settings.scale_factor);
 
-        *context.window_size = new_window_size;
+        *context.render_target_size = new_render_target_size;
     }
 }
 
@@ -566,6 +564,7 @@ pub fn process_output_system(
     mut egui_clipboard: bevy::ecs::system::ResMut<crate::EguiClipboard>,
     mut event: EventWriter<RequestRedraw>,
     #[cfg(windows)] mut last_cursor_icon: Local<bevy::utils::HashMap<Entity, egui::CursorIcon>>,
+    event_loop_proxy: Option<NonSend<EventLoopProxy<WakeUp>>>,
 ) {
     let mut should_request_redraw = false;
 
@@ -601,24 +600,41 @@ pub fn process_output_system(
             egui_clipboard.set_contents(&platform_output.copied_text);
         }
 
-        let mut set_icon = || {
-            context.window.cursor.icon = egui_to_winit_cursor_icon(platform_output.cursor_icon)
-                .unwrap_or(bevy::window::CursorIcon::Default);
-        };
+        if let Some(mut window) = context.window {
+            let mut set_icon = || {
+                window.cursor.icon = egui_to_winit_cursor_icon(platform_output.cursor_icon)
+                    .unwrap_or(bevy::window::CursorIcon::Default);
+            };
 
-        #[cfg(windows)]
-        {
-            let last_cursor_icon = last_cursor_icon.entry(context.window_entity).or_default();
-            if *last_cursor_icon != platform_output.cursor_icon {
-                set_icon();
-                *last_cursor_icon = platform_output.cursor_icon;
+            #[cfg(windows)]
+            {
+                let last_cursor_icon = last_cursor_icon.entry(context.render_target).or_default();
+                if *last_cursor_icon != platform_output.cursor_icon {
+                    set_icon();
+                    *last_cursor_icon = platform_output.cursor_icon;
+                }
             }
+            #[cfg(not(windows))]
+            set_icon();
         }
-        #[cfg(not(windows))]
-        set_icon();
 
         let needs_repaint = !context.render_output.is_empty();
         should_request_redraw |= ctx.has_requested_repaint() && needs_repaint;
+
+        // The resource doesn't exist in the headless mode.
+        if let Some(event_loop_proxy) = &event_loop_proxy {
+            // A zero duration indicates that it's an outstanding redraw request, which gives Egui an
+            // opportunity to settle the effects of interactions with widgets. Such repaint requests
+            // are processed not immediately but on a next frame. In this case, we need to indicate to
+            // winit, that it needs to wake up next frame as well even if there are no inputs.
+            //
+            // TLDR: this solves repaint corner cases of `WinitSettings::desktop_app()`.
+            if let Some(Duration::ZERO) =
+                ctx.viewport(|viewport| viewport.input.wants_repaint_after())
+            {
+                let _ = event_loop_proxy.send_event(WakeUp);
+            }
+        }
 
         #[cfg(feature = "open_url")]
         if let Some(egui::output::OpenUrl { url, new_tab }) = platform_output.open_url {
