@@ -22,7 +22,6 @@ use bevy::{
     },
     utils::HashMap,
 };
-use bevy::render::texture::GpuImage;
 
 /// Extracted Egui settings.
 #[derive(Resource, Deref, DerefMut, Default)]

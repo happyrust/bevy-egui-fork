@@ -22,8 +22,8 @@ impl FromWorld for Images {
 /// - configuring egui contexts during the startup.
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::BLACK))
-        .insert_resource(Msaa::Sample4)
+        .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
+        // .insert_resource(Msaa::Sample4)
         .init_resource::<UiState>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -120,8 +120,7 @@ fn ui_example_system(
             ui.heading("Side Panel");
 
             ui.horizontal(|ui| {
-                // ui.label("Write something: ");
-                ui.add(egui::Label::new("Write something: ").selectable(true));
+                ui.label("Write something: ");
                 ui.text_edit_singleline(&mut ui_state.label);
             });
 
@@ -235,7 +234,7 @@ impl Default for Painting {
 impl Painting {
     pub fn ui_control(&mut self, ui: &mut egui::Ui) -> egui::Response {
         ui.horizontal(|ui| {
-            ui.add(&mut self.stroke);
+            egui::stroke_ui(ui, &mut self.stroke, "Stroke");
             ui.separator();
             if ui.button("Clear Painting").clicked() {
                 self.lines.clear();
