@@ -1,9 +1,11 @@
+#[cfg(target_arch = "wasm32")]
+use crate::text_agent::{is_mobile_safari, update_text_agent};
 #[cfg(feature = "render")]
 use crate::EguiRenderToTextureHandle;
 use crate::{
-    EguiContext, EguiContextQuery, EguiContextQueryItem, EguiInput, EguiSettings, RenderTargetSize,
+    EguiContext, EguiContextQuery, EguiContextQueryItem, EguiFullOutput, EguiInput, EguiSettings,
+    RenderTargetSize,
 };
-
 #[cfg(feature = "render")]
 use bevy::{asset::Assets, render::texture::Image};
 use bevy::{
@@ -21,7 +23,7 @@ use bevy::{
     log::{self, error},
     prelude::{Entity, EventReader, NonSend, Query, Resource, Time},
     time::Real,
-    window::{CursorMoved, RequestRedraw},
+    window::{CursorMoved, Ime, RequestRedraw},
     winit::{EventLoopProxy, WakeUp},
 };
 use std::{marker::PhantomData, time::Duration};
@@ -38,9 +40,10 @@ pub struct InputEvents<'w, 's> {
     pub ev_touch: EventReader<'w, 's, TouchInput>,
     pub ev_ime_input: EventReader<'w, 's, Ime>,
     pub ev_focus: EventReader<'w, 's, KeyboardFocusLost>,
+    pub ev_ime_input: EventReader<'w, 's, Ime>,
 }
 
-impl<'w, 's> InputEvents<'w, 's> {
+impl InputEvents<'_, '_> {
     /// Consumes all the events.
     pub fn clear(&mut self) {
         self.ev_cursor.clear();
@@ -86,7 +89,7 @@ pub struct ContextSystemParams<'w, 's> {
     _marker: PhantomData<&'s ()>,
 }
 
-impl<'w, 's> ContextSystemParams<'w, 's> {
+impl ContextSystemParams<'_, '_> {
     fn window_context(&mut self, window: Entity) -> Option<EguiContextQueryItem> {
         match self.contexts.get_mut(window) {
             Ok(context) => Some(context),
@@ -109,7 +112,6 @@ pub fn process_input_system(
     mut input_events: InputEvents,
     mut input_resources: InputResources,
     mut context_params: ContextSystemParams,
-    egui_settings: Res<EguiSettings>,
     time: Res<Time<Real>>,
     mut input_method_editor_started: Local<bool>,
 ) {
@@ -135,6 +137,8 @@ pub fn process_input_system(
     for event in input_events.ev_keyboard_input.read() {
         // Copy the events as we might want to pass them to an Egui context later.
         keyboard_input_events.push(event.clone());
+        #[cfg(feature = "log_input_events")]
+        log::info!("{event:?}");
 
         let KeyboardInput {
             logical_key, state, ..
@@ -184,7 +188,7 @@ pub fn process_input_system(
             continue;
         };
 
-        let scale_factor = egui_settings.scale_factor;
+        let scale_factor = window_context.egui_settings.scale_factor;
         let (x, y): (f32, f32) = (event.position / scale_factor).into();
         let mouse_position = egui::pos2(x, y);
         window_context.ctx.mouse_position = mouse_position;
@@ -198,6 +202,8 @@ pub fn process_input_system(
         let Some(mut window_context) = context_params.window_context(event.window) else {
             continue;
         };
+        #[cfg(feature = "log_input_events")]
+        log::info!("{event:?}");
 
         let button = match event.button {
             MouseButton::Left => Some(egui::PointerButton::Primary),
@@ -226,6 +232,8 @@ pub fn process_input_system(
         let Some(mut window_context) = context_params.window_context(event.window) else {
             continue;
         };
+        #[cfg(feature = "log_input_events")]
+        log::info!("{event:?}");
 
         let delta = egui::vec2(event.x, event.y);
 
@@ -244,14 +252,58 @@ pub fn process_input_system(
             });
     }
 
-    fn push_ime_event(params: &mut ContextSystemParams, window: &Entity, event: egui::ImeEvent) {
-        params
-            .contexts
-            .get_mut(*window)
-            .unwrap()
-            .egui_input
-            .events
-            .push(egui::Event::Ime(event));
+    #[cfg(target_arch = "wasm32")]
+    let mut editing_text = false;
+    #[cfg(target_arch = "wasm32")]
+    for context in context_params.contexts.iter() {
+        let platform_output = &context.egui_output.platform_output;
+        if platform_output.ime.is_some() || platform_output.mutable_text_under_cursor {
+            editing_text = true;
+            break;
+        }
+    }
+
+    for event in input_events.ev_ime_input.read() {
+        let window = match &event {
+            Ime::Preedit { window, .. }
+            | Ime::Commit { window, .. }
+            | Ime::Disabled { window }
+            | Ime::Enabled { window } => *window,
+        };
+
+        let Some(mut window_context) = context_params.window_context(window) else {
+            continue;
+        };
+        #[cfg(feature = "log_input_events")]
+        log::info!("{event:?}");
+
+        // Aligned with the egui-winit implementation: https://github.com/emilk/egui/blob/0f2b427ff4c0a8c68f6622ec7d0afb7ba7e71bba/crates/egui-winit/src/lib.rs#L348
+        match event {
+            Ime::Enabled { window: _ } => {
+                window_context.ime_event_enable();
+            }
+            Ime::Preedit {
+                value,
+                window: _,
+                cursor: _,
+            } => {
+                window_context.ime_event_enable();
+                window_context
+                    .egui_input
+                    .events
+                    .push(egui::Event::Ime(egui::ImeEvent::Preedit(value.clone())));
+            }
+            Ime::Commit { value, window: _ } => {
+                window_context
+                    .egui_input
+                    .events
+                    .push(egui::Event::Ime(egui::ImeEvent::Commit(value.clone())));
+                window_context.ime_event_disable();
+            }
+            Ime::Disabled { window: _ } => {
+                window_context.ime_event_disable();
+            }
+        }
     }
 
     for event in keyboard_input_events {
@@ -259,6 +311,8 @@ pub fn process_input_system(
         let Some(mut window_context) = context_params.window_context(event.window) else {
             continue;
         };
+        #[cfg(feature = "log_input_events")]
+        log::info!("{event:?}");
 
         if text_event_allowed && event.state.is_pressed() {
             match &event.logical_key {
@@ -368,6 +422,8 @@ pub fn process_input_system(
     while let Some(event) = input_resources.egui_clipboard.try_receive_clipboard_event() {
         // In web, we assume that we have only 1 window per app.
         let mut window_context = context_params.contexts.single_mut();
+        #[cfg(feature = "log_input_events")]
+        log::info!("{event:?}");
 
         match event {
             crate::web_clipboard::WebClipboardEvent::Copy => {
@@ -392,9 +448,11 @@ pub fn process_input_system(
         let Some(mut window_context) = context_params.window_context(event.window) else {
             continue;
         };
+        #[cfg(feature = "log_input_events")]
+        log::info!("{event:?}");
 
         let touch_id = egui::TouchId::from(event.id);
-        let scale_factor = egui_settings.scale_factor;
+        let scale_factor = window_context.egui_settings.scale_factor;
         let touch_position: (f32, f32) = (event.position / scale_factor).into();
 
         // Emit touch event
@@ -471,6 +529,11 @@ pub fn process_input_system(
                         .egui_input
                         .events
                         .push(egui::Event::PointerGone);
+
+                    #[cfg(target_arch = "wasm32")]
+                    if !is_mobile_safari() {
+                        update_text_agent(editing_text);
+                    }
                 }
                 bevy::input::touch::TouchPhase::Canceled => {
                     window_context.ctx.pointer_touch_id = None;
@@ -496,7 +559,6 @@ pub fn process_input_system(
 /// Initialises Egui contexts (for multiple windows).
 pub fn update_contexts_system(
     mut context_params: ContextSystemParams,
-    egui_settings: Res<EguiSettings>,
     #[cfg(feature = "render")] images: Res<Assets<Image>>,
 ) {
     for mut context in context_params.contexts.iter_mut() {
@@ -525,10 +587,10 @@ pub fn update_contexts_system(
         };
         let width = new_render_target_size.physical_width
             / new_render_target_size.scale_factor
-            / egui_settings.scale_factor;
+            / context.egui_settings.scale_factor;
         let height = new_render_target_size.physical_height
             / new_render_target_size.scale_factor
-            / egui_settings.scale_factor;
+            / context.egui_settings.scale_factor;
 
         if width < 1.0 || height < 1.0 {
             continue;
@@ -539,27 +601,36 @@ pub fn update_contexts_system(
             egui::pos2(width, height),
         ));
 
-        context
-            .ctx
-            .get_mut()
-            .set_pixels_per_point(new_render_target_size.scale_factor * egui_settings.scale_factor);
+        context.ctx.get_mut().set_pixels_per_point(
+            new_render_target_size.scale_factor * context.egui_settings.scale_factor,
+        );
 
         *context.render_target_size = new_render_target_size;
     }
 }
 
-/// Marks frame start for Egui.
-pub fn begin_frame_system(mut contexts: Query<(&mut EguiContext, &mut EguiInput)>) {
-    for (mut ctx, mut egui_input) in contexts.iter_mut() {
-        ctx.get_mut().begin_frame(egui_input.take());
+/// Marks a pass start for Egui.
+pub fn begin_pass_system(mut contexts: Query<(&mut EguiContext, &EguiSettings, &mut EguiInput)>) {
+    for (mut ctx, egui_settings, mut egui_input) in contexts.iter_mut() {
+        if !egui_settings.run_manually {
+            ctx.get_mut().begin_pass(egui_input.take());
+        }
+    }
+}
+
+/// Marks a pass end for Egui.
+pub fn end_pass_system(
+    mut contexts: Query<(&mut EguiContext, &EguiSettings, &mut EguiFullOutput)>,
+) {
+    for (mut ctx, egui_settings, mut full_output) in contexts.iter_mut() {
+        if !egui_settings.run_manually {
+            **full_output = Some(ctx.get_mut().end_pass());
+        }
     }
 }
 
 /// Reads Egui output.
 pub fn process_output_system(
-    #[cfg_attr(not(feature = "open_url"), allow(unused_variables))] egui_settings: Res<
-        EguiSettings,
-    >,
     mut contexts: Query<EguiContextQuery>,
     #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
     mut egui_clipboard: bevy::ecs::system::ResMut<crate::EguiClipboard>,
@@ -571,7 +642,10 @@ pub fn process_output_system(
 
     for mut context in contexts.iter_mut() {
         let ctx = context.ctx.get_mut();
-        let full_output = ctx.end_frame();
+        let Some(full_output) = context.egui_full_output.0.take() else {
+            log::error!("bevy_egui pass output has not been prepared (if EguiSettings::run_manually is set to true, make sure to call egui::Context::run or egui::Context::begin_pass and egui::Context::end_pass)");
+            continue;
+        };
         let egui::FullOutput {
             platform_output,
             shapes,
@@ -650,7 +724,8 @@ pub fn process_output_system(
             let target = if new_tab {
                 "_blank"
             } else {
-                egui_settings
+                context
+                    .egui_settings
                     .default_open_url_target
                     .as_deref()
                     .unwrap_or("_self")
