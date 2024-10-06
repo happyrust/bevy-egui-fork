@@ -29,6 +29,7 @@ use bevy::{
         view::{ExtractedWindow, ExtractedWindows},
     },
 };
+use bevy::render::world_sync::{MainEntity, RenderEntity};
 use bytemuck::cast_slice;
 use egui::{TextureFilter, TextureOptions};
 
@@ -193,6 +194,7 @@ pub(crate) struct EguiDraw {
 /// Egui render node.
 pub struct EguiNode {
     window_entity: Entity,
+    window_render_entity: RenderEntity,
     vertex_data: Vec<u8>,
     vertex_buffer_capacity: usize,
     vertex_buffer: Option<Buffer>,
@@ -206,9 +208,10 @@ pub struct EguiNode {
 
 impl EguiNode {
     /// Constructs Egui render node.
-    pub fn new(window_entity: Entity) -> Self {
+    pub fn new(window_entity: Entity, window_render_entity: RenderEntity) -> Self {
         EguiNode {
             window_entity,
+            window_render_entity,
             draw_commands: Vec::new(),
             vertex_data: Vec::new(),
             vertex_buffer_capacity: 0,
@@ -224,6 +227,7 @@ impl EguiNode {
 
 impl Node for EguiNode {
     fn update(&mut self, world: &mut World) {
+
         let Some(key) = world
             .get_resource::<ExtractedWindows>()
             .and_then(|windows| windows.windows.get(&self.window_entity))
@@ -236,7 +240,7 @@ impl Node for EguiNode {
             world.query::<(&EguiSettings, &RenderTargetSize, &mut EguiRenderOutput)>();
 
         let Ok((egui_settings, window_size, mut render_output)) =
-            render_target_query.get_mut(world, self.window_entity)
+            render_target_query.get_mut(world, self.window_render_entity.id())
         else {
             return;
         };
@@ -391,6 +395,7 @@ impl Node for EguiNode {
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
 
         let extracted_windows = &world.get_resource::<ExtractedWindows>().unwrap().windows;
+
         let extracted_window = extracted_windows.get(&self.window_entity);
         let swap_chain_texture_view =
             match extracted_window.and_then(|v| v.swap_chain_texture_view.as_ref()) {
@@ -472,7 +477,7 @@ impl Node for EguiNode {
             return Ok(());
         };
 
-        let transform_buffer_offset = egui_transforms.offsets[&self.window_entity];
+        let transform_buffer_offset = egui_transforms.offsets[&self.window_render_entity.id()];
         let transform_buffer_bind_group = &egui_transforms.bind_group.as_ref().unwrap().1;
 
         let mut requires_reset = true;

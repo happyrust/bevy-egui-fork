@@ -23,7 +23,7 @@ use bevy::{
     log::{self, error},
     prelude::{Entity, EventReader, NonSend, Query, Resource, Time},
     time::Real,
-    window::{CursorMoved, Ime, RequestRedraw},
+    window::{CursorMoved, RequestRedraw},
     winit::{EventLoopProxy, WakeUp},
 };
 use std::{marker::PhantomData, time::Duration};
@@ -40,7 +40,6 @@ pub struct InputEvents<'w, 's> {
     pub ev_touch: EventReader<'w, 's, TouchInput>,
     pub ev_ime_input: EventReader<'w, 's, Ime>,
     pub ev_focus: EventReader<'w, 's, KeyboardFocusLost>,
-    pub ev_ime_input: EventReader<'w, 's, Ime>,
 }
 
 impl InputEvents<'_, '_> {
@@ -98,7 +97,7 @@ impl ContextSystemParams<'_, '_> {
             }
             Err(
                 err @ QueryEntityError::NoSuchEntity(_)
-                | err @ QueryEntityError::QueryDoesNotMatch(_),
+                | err @ QueryEntityError::QueryDoesNotMatch(_, _),
             ) => {
                 log::error!("Failed to get an Egui context for a window ({window:?}): {err:?}",);
                 None
@@ -370,49 +369,49 @@ pub fn process_input_system(
         }
     }
 
-    for ev in input_events.ev_ime_input.read() {
-        match ev {
-            Ime::Preedit {
-                window,
-                value,
-                cursor,
-            } => {
-                if cursor.is_some() {
-                    if !*input_method_editor_started {
-                        *input_method_editor_started = true;
-                        push_ime_event(&mut context_params, window, egui::ImeEvent::Enabled);
-                    }
-                    push_ime_event(
-                        &mut context_params,
-                        window,
-                        egui::ImeEvent::Preedit(value.clone()),
-                    );
-                }
-            }
-            Ime::Commit { window, value } => {
-                *input_method_editor_started = false;
-                push_ime_event(
-                    &mut context_params,
-                    window,
-                    egui::ImeEvent::Commit(value.clone()),
-                )
-            }
-            Ime::Enabled { window } => {
-                push_ime_event(
-                    &mut context_params,
-                    window,
-                    egui::ImeEvent::Enabled,
-                );
-            }
-            Ime::Disabled { window } => {
-                push_ime_event(
-                    &mut context_params,
-                    window,
-                    egui::ImeEvent::Disabled,
-                );
-            }
-        }
-    }
+    // for ev in input_events.ev_ime_input.read() {
+    //     match ev {
+    //         Ime::Preedit {
+    //             window,
+    //             value,
+    //             cursor,
+    //         } => {
+    //             if cursor.is_some() {
+    //                 if !*input_method_editor_started {
+    //                     *input_method_editor_started = true;
+    //                     push_ime_event(&mut context_params, window, egui::ImeEvent::Enabled);
+    //                 }
+    //                 push_ime_event(
+    //                     &mut context_params,
+    //                     window,
+    //                     egui::ImeEvent::Preedit(value.clone()),
+    //                 );
+    //             }
+    //         }
+    //         Ime::Commit { window, value } => {
+    //             *input_method_editor_started = false;
+    //             push_ime_event(
+    //                 &mut context_params,
+    //                 window,
+    //                 egui::ImeEvent::Commit(value.clone()),
+    //             )
+    //         }
+    //         Ime::Enabled { window } => {
+    //             push_ime_event(
+    //                 &mut context_params,
+    //                 window,
+    //                 egui::ImeEvent::Enabled,
+    //             );
+    //         }
+    //         Ime::Disabled { window } => {
+    //             push_ime_event(
+    //                 &mut context_params,
+    //                 window,
+    //                 egui::ImeEvent::Disabled,
+    //             );
+    //         }
+    //     }
+    // }
 
     #[cfg(all(
     feature = "manage_clipboard",

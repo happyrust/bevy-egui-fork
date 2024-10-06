@@ -22,6 +22,7 @@ use bevy::{
     },
     utils::HashMap,
 };
+use bevy::render::world_sync::RenderEntity;
 
 /// Extracted Egui settings.
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -85,16 +86,15 @@ impl ExtractedEguiTextures<'_> {
 
 /// Sets up the pipeline for newly created windows.
 pub fn setup_new_windows_render_system(
-    windows: Extract<Query<Entity, Added<Window>>>,
+    windows: Extract<Query<(Entity, &RenderEntity), Added<Window>>>,
     mut render_graph: ResMut<RenderGraph>,
 ) {
-    for window in windows.iter() {
+    for (window, render_entity) in windows.iter() {
         let egui_pass = EguiPass {
             entity_index: window.index(),
             entity_generation: window.generation(),
         };
-
-        let new_node = EguiNode::new(window);
+        let new_node = EguiNode::new(window, *render_entity);
 
         render_graph.add_node(egui_pass.clone(), new_node);
 
@@ -103,10 +103,11 @@ pub fn setup_new_windows_render_system(
 }
 /// Sets up the pipeline for newly created Render to texture entities.
 pub fn setup_new_rtt_render_system(
-    render_to_texture_targets: Extract<Query<Entity, Added<EguiRenderToTextureHandle>>>,
+    render_to_texture_targets: Extract<Query<&RenderEntity, Added<EguiRenderToTextureHandle>>>,
     mut render_graph: ResMut<RenderGraph>,
 ) {
     for render_to_texture_target in render_to_texture_targets.iter() {
+        let render_to_texture_target = render_to_texture_target.id();
         let egui_rtt_pass = EguiRenderToTexturePass {
             entity_index: render_to_texture_target.index(),
             entity_generation: render_to_texture_target.generation(),
