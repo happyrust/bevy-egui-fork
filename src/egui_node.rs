@@ -2,7 +2,7 @@ use crate::{
     render_systems::{
         EguiPipelines, EguiTextureBindGroups, EguiTextureId, EguiTransform, EguiTransforms,
     },
-    EguiRenderOutput, EguiSettings, WindowSize,
+    EguiRenderOutput, EguiSettings, RenderTargetSize,
 };
 use bevy::{
     ecs::world::{FromWorld, World},
@@ -10,6 +10,7 @@ use bevy::{
     render::{
         render_asset::RenderAssetUsages,
         render_graph::{Node, NodeRunError, RenderGraphContext},
+        render_phase::TrackedRenderPass,
         render_resource::{
             BindGroupLayout, BindGroupLayoutEntry, BindingType, BlendComponent, BlendFactor,
             BlendOperation, BlendState, Buffer, BufferAddress, BufferBindingType, BufferDescriptor,
@@ -20,11 +21,16 @@ use bevy::{
             StoreOp, TextureDimension, TextureFormat, TextureSampleType, TextureViewDimension,
             VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
+        sync_world::RenderEntity,
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::{Image, ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
-        view::ExtractedWindows,
+        texture::{
+            GpuImage, Image, ImageAddressMode, ImageFilterMode, ImageSampler,
+            ImageSamplerDescriptor,
+        },
+        view::{ExtractedWindow, ExtractedWindows},
     },
 };
+use bytemuck::cast_slice;
 use egui::{TextureFilter, TextureOptions};
 
 /// Egui shader.
@@ -93,6 +99,22 @@ pub struct EguiPipelineKey {
     pub texture_format: TextureFormat,
 }
 
+impl EguiPipelineKey {
+    /// Constructs a pipeline key from a window.
+    pub fn from_extracted_window(window: &ExtractedWindow) -> Option<Self> {
+        Some(Self {
+            texture_format: window.swap_chain_texture_format?.add_srgb_suffix(),
+        })
+    }
+
+    /// Constructs a pipeline key from a gpu image.
+    pub fn from_gpu_image(image: &GpuImage) -> Self {
+        EguiPipelineKey {
+            texture_format: image.texture_format.add_srgb_suffix(),
+        }
+    }
+}
+
 impl SpecializedRenderPipeline for EguiPipeline {
     type Key = EguiPipelineKey;
 
@@ -149,16 +171,30 @@ impl SpecializedRenderPipeline for EguiPipeline {
     }
 }
 
-#[derive(Debug)]
-struct DrawCommand {
-    vertices_count: usize,
-    egui_texture: EguiTextureId,
-    clipping_zone: (u32, u32, u32, u32), // x, y, w, h
+pub(crate) struct DrawCommand {
+    pub(crate) clip_rect: egui::Rect,
+    pub(crate) primitive: DrawPrimitive,
+}
+
+pub(crate) enum DrawPrimitive {
+    Egui(EguiDraw),
+    PaintCallback(PaintCallbackDraw),
+}
+
+pub(crate) struct PaintCallbackDraw {
+    pub(crate) callback: std::sync::Arc<EguiBevyPaintCallback>,
+    pub(crate) rect: egui::Rect,
+}
+
+pub(crate) struct EguiDraw {
+    pub(crate) vertices_count: usize,
+    pub(crate) egui_texture: EguiTextureId,
 }
 
 /// Egui render node.
 pub struct EguiNode {
     window_entity: Entity,
+    window_render_entity: RenderEntity,
     vertex_data: Vec<u8>,
     vertex_buffer_capacity: usize,
     vertex_buffer: Option<Buffer>,
@@ -166,13 +202,16 @@ pub struct EguiNode {
     index_buffer_capacity: usize,
     index_buffer: Option<Buffer>,
     draw_commands: Vec<DrawCommand>,
+    postponed_updates: Vec<(egui::Rect, PaintCallbackDraw)>,
+    pixels_per_point: f32,
 }
 
 impl EguiNode {
     /// Constructs Egui render node.
-    pub fn new(window_entity: Entity) -> Self {
+    pub fn new(window_entity: Entity, window_render_entity: RenderEntity) -> Self {
         EguiNode {
             window_entity,
+            window_render_entity,
             draw_commands: Vec::new(),
             vertex_data: Vec::new(),
             vertex_buffer_capacity: 0,
@@ -180,26 +219,35 @@ impl EguiNode {
             index_data: Vec::new(),
             index_buffer_capacity: 0,
             index_buffer: None,
+            postponed_updates: Vec::new(),
+            pixels_per_point: 1.,
         }
     }
 }
 
 impl Node for EguiNode {
     fn update(&mut self, world: &mut World) {
-        let mut window_sizes = world.query::<(&WindowSize, &mut EguiRenderOutput)>();
 
-        let Ok((window_size, mut render_output)) = window_sizes.get_mut(world, self.window_entity)
+        let Some(key) = world
+            .get_resource::<ExtractedWindows>()
+            .and_then(|windows| windows.windows.get(&self.window_entity))
+            .and_then(EguiPipelineKey::from_extracted_window)
+        else {
+            return;
+        };
+
+        let mut render_target_query =
+            world.query::<(&EguiSettings, &RenderTargetSize, &mut EguiRenderOutput)>();
+
+        let Ok((egui_settings, window_size, mut render_output)) =
+            render_target_query.get_mut(world, self.window_render_entity.id())
         else {
             return;
         };
         let window_size = *window_size;
         let paint_jobs = std::mem::take(&mut render_output.paint_jobs);
 
-        let egui_settings = &world.get_resource::<EguiSettings>().unwrap();
-
-        let render_device = world.get_resource::<RenderDevice>().unwrap();
-
-        let scale_factor = window_size.scale_factor * egui_settings.scale_factor;
+        self.pixels_per_point = window_size.scale_factor * egui_settings.scale_factor;
         if window_size.physical_width == 0.0 || window_size.physical_height == 0.0 {
             return;
         }
@@ -209,33 +257,64 @@ impl Node for EguiNode {
         self.draw_commands.clear();
         self.vertex_data.clear();
         self.index_data.clear();
+        self.postponed_updates.clear();
+
+        let render_device = world.get_resource::<RenderDevice>().unwrap();
 
         for egui::epaint::ClippedPrimitive {
             clip_rect,
             primitive,
-        } in &paint_jobs
+        } in paint_jobs
         {
-            let mesh = match primitive {
-                egui::epaint::Primitive::Mesh(mesh) => mesh,
-                egui::epaint::Primitive::Callback(_) => {
-                    unimplemented!("Paint callbacks aren't supported")
-                }
+            let clip_urect = bevy::math::URect {
+                min: bevy::math::UVec2 {
+                    x: (clip_rect.min.x * self.pixels_per_point).round() as u32,
+                    y: (clip_rect.min.y * self.pixels_per_point).round() as u32,
+                },
+                max: bevy::math::UVec2 {
+                    x: (clip_rect.max.x * self.pixels_per_point).round() as u32,
+                    y: (clip_rect.max.y * self.pixels_per_point).round() as u32,
+                },
             };
 
-            let (x, y, w, h) = (
-                (clip_rect.min.x * scale_factor).round() as u32,
-                (clip_rect.min.y * scale_factor).round() as u32,
-                (clip_rect.width() * scale_factor).round() as u32,
-                (clip_rect.height() * scale_factor).round() as u32,
-            );
-
-            if w < 1
-                || h < 1
-                || x >= window_size.physical_width as u32
-                || y >= window_size.physical_height as u32
+            if clip_urect
+                .intersect(bevy::math::URect::new(
+                    0,
+                    0,
+                    window_size.physical_width as u32,
+                    window_size.physical_height as u32,
+                ))
+                .is_empty()
             {
                 continue;
             }
+
+            let mesh = match primitive {
+                egui::epaint::Primitive::Mesh(mesh) => mesh,
+                egui::epaint::Primitive::Callback(paint_callback) => {
+                    let Ok(callback) = paint_callback.callback.downcast::<EguiBevyPaintCallback>()
+                    else {
+                        unimplemented!("Unsupported egui paint callback type");
+                    };
+
+                    self.postponed_updates.push((
+                        clip_rect,
+                        PaintCallbackDraw {
+                            callback: callback.clone(),
+                            rect: paint_callback.rect,
+                        },
+                    ));
+
+                    self.draw_commands.push(DrawCommand {
+                        primitive: DrawPrimitive::PaintCallback(PaintCallbackDraw {
+                            callback,
+                            rect: paint_callback.rect,
+                        }),
+                        clip_rect,
+                    });
+                    continue;
+                }
+            };
 
             self.vertex_data
                 .extend_from_slice(bytemuck::cast_slice::<_, u8>(mesh.vertices.as_slice()));
@@ -253,17 +332,12 @@ impl Node for EguiNode {
                 egui::TextureId::User(id) => EguiTextureId::User(id),
             };
 
-            let x_viewport_clamp = (x + w).saturating_sub(window_size.physical_width as u32);
-            let y_viewport_clamp = (y + h).saturating_sub(window_size.physical_height as u32);
             self.draw_commands.push(DrawCommand {
-                vertices_count: mesh.indices.len(),
-                egui_texture: texture_handle,
-                clipping_zone: (
-                    x,
-                    y,
-                    w.saturating_sub(x_viewport_clamp).max(1),
-                    h.saturating_sub(y_viewport_clamp).max(1),
-                ),
+                primitive: DrawPrimitive::Egui(EguiDraw {
+                    vertices_count: mesh.indices.len(),
+                    egui_texture: texture_handle,
+                }),
+                clip_rect,
             });
         }
 
@@ -293,32 +367,41 @@ impl Node for EguiNode {
                 mapped_at_creation: false,
             }));
         }
+
+        for (clip_rect, command) in self.postponed_updates.drain(..) {
+            let info = egui::PaintCallbackInfo {
+                viewport: command.rect,
+                clip_rect,
+                pixels_per_point: self.pixels_per_point,
+                screen_size_px: [
+                    window_size.physical_width as u32,
+                    window_size.physical_height as u32,
+                ],
+            };
+            command
+                .callback
+                .cb()
+                .update(info, self.window_entity, key, world);
+        }
     }
 
-    fn run(
+    fn run<'w>(
         &self,
         _graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
-        world: &World,
+        render_context: &mut RenderContext<'w>,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let egui_pipelines = &world.get_resource::<EguiPipelines>().unwrap().0;
         let pipeline_cache = world.get_resource::<PipelineCache>().unwrap();
 
         let extracted_windows = &world.get_resource::<ExtractedWindows>().unwrap().windows;
-        let extracted_window =
-            if let Some(extracted_window) = extracted_windows.get(&self.window_entity) {
-                extracted_window
-            } else {
-                return Ok(()); // No window
-            };
 
-        let swap_chain_texture_view = if let Some(swap_chain_texture_view) =
-            extracted_window.swap_chain_texture_view.as_ref()
-        {
-            swap_chain_texture_view
-        } else {
-            return Ok(()); // No swapchain texture
-        };
+        let extracted_window = extracted_windows.get(&self.window_entity);
+        let swap_chain_texture_view =
+            match extracted_window.and_then(|v| v.swap_chain_texture_view.as_ref()) {
+                None => return Ok(()),
+                Some(window) => window,
+            };
 
         let render_queue = world.get_resource::<RenderQueue>().unwrap();
 
@@ -330,11 +413,47 @@ impl Node for EguiNode {
         render_queue.write_buffer(vertex_buffer, 0, &self.vertex_data);
         render_queue.write_buffer(index_buffer, 0, &self.index_data);
 
+        let (physical_width, physical_height, pipeline_key) = match extracted_window {
+            Some(window) => (
+                window.physical_width,
+                window.physical_height,
+                EguiPipelineKey::from_extracted_window(window),
+            ),
+            None => unreachable!(),
+        };
+        let Some(key) = pipeline_key else {
+            return Ok(());
+        };
+
+        for draw_command in &self.draw_commands {
+            match &draw_command.primitive {
+                DrawPrimitive::Egui(_command) => {}
+                DrawPrimitive::PaintCallback(command) => {
+                    let info = egui::PaintCallbackInfo {
+                        viewport: command.rect,
+                        clip_rect: draw_command.clip_rect,
+                        pixels_per_point: self.pixels_per_point,
+                        screen_size_px: [physical_width, physical_height],
+                    };
+
+                    command.callback.cb().prepare_render(
+                        info,
+                        render_context,
+                        self.window_entity,
+                        key,
+                        world,
+                    );
+                }
+            }
+        }
+
         let bind_groups = &world.get_resource::<EguiTextureBindGroups>().unwrap();
 
         let egui_transforms = world.get_resource::<EguiTransforms>().unwrap();
 
-        let mut render_pass =
+        let device = world.get_resource::<RenderDevice>().unwrap();
+
+        let render_pass =
             render_context
                 .command_encoder()
                 .begin_render_pass(&RenderPassDescriptor {
@@ -351,61 +470,124 @@ impl Node for EguiNode {
                     timestamp_writes: None,
                     occlusion_query_set: None,
                 });
+        let mut render_pass = TrackedRenderPass::new(device, render_pass);
 
-        let Some(pipeline_id) = egui_pipelines.get(&extracted_window.entity) else {
-            return Ok(());
-        };
+        let pipeline_id = egui_pipelines.get(&self.window_entity).unwrap();
         let Some(pipeline) = pipeline_cache.get_render_pipeline(*pipeline_id) else {
             return Ok(());
         };
 
-        render_pass.set_pipeline(pipeline);
-        render_pass.set_vertex_buffer(0, *self.vertex_buffer.as_ref().unwrap().slice(..));
-        render_pass.set_index_buffer(
-            *self.index_buffer.as_ref().unwrap().slice(..),
-            IndexFormat::Uint32,
-        );
-
-        let transform_buffer_offset = egui_transforms.offsets[&self.window_entity];
+        let transform_buffer_offset = egui_transforms.offsets[&self.window_render_entity.id()];
         let transform_buffer_bind_group = &egui_transforms.bind_group.as_ref().unwrap().1;
-        render_pass.set_bind_group(0, transform_buffer_bind_group, &[transform_buffer_offset]);
+
+        let mut requires_reset = true;
 
         let mut vertex_offset: u32 = 0;
         for draw_command in &self.draw_commands {
-            if draw_command.clipping_zone.0 < extracted_window.physical_width
-                && draw_command.clipping_zone.1 < extracted_window.physical_height
-            {
-                let texture_bind_group = match bind_groups.get(&draw_command.egui_texture) {
-                    Some(texture_resource) => texture_resource,
-                    None => {
-                        vertex_offset += draw_command.vertices_count as u32;
-                        continue;
-                    }
-                };
-
-                render_pass.set_bind_group(1, texture_bind_group, &[]);
-
-                render_pass.set_scissor_rect(
-                    draw_command.clipping_zone.0,
-                    draw_command.clipping_zone.1,
-                    draw_command.clipping_zone.2.min(
-                        extracted_window
-                            .physical_width
-                            .saturating_sub(draw_command.clipping_zone.0),
-                    ),
-                    draw_command.clipping_zone.3.min(
-                        extracted_window
-                            .physical_height
-                            .saturating_sub(draw_command.clipping_zone.1),
-                    ),
+            if requires_reset {
+                render_pass.set_viewport(
+                    0.,
+                    0.,
+                    physical_width as f32,
+                    physical_height as f32,
+                    0.,
+                    1.,
                 );
-
-                render_pass.draw_indexed(
-                    vertex_offset..(vertex_offset + draw_command.vertices_count as u32),
+                render_pass.set_render_pipeline(pipeline);
+                render_pass.set_bind_group(
                     0,
-                    0..1,
+                    transform_buffer_bind_group,
+                    &[transform_buffer_offset],
                 );
-                vertex_offset += draw_command.vertices_count as u32;
+
+                requires_reset = false;
+            }
+
+            let clip_urect = bevy::math::URect {
+                min: bevy::math::UVec2 {
+                    x: (draw_command.clip_rect.min.x * self.pixels_per_point).round() as u32,
+                    y: (draw_command.clip_rect.min.y * self.pixels_per_point).round() as u32,
+                },
+                max: bevy::math::UVec2 {
+                    x: (draw_command.clip_rect.max.x * self.pixels_per_point).round() as u32,
+                    y: (draw_command.clip_rect.max.y * self.pixels_per_point).round() as u32,
+                },
+            };
+
+            let scrissor_rect = clip_urect.intersect(bevy::math::URect::new(
+                0,
+                0,
+                physical_width,
+                physical_height,
+            ));
+            if scrissor_rect.is_empty() {
+                continue;
+            }
+
+            render_pass.set_scissor_rect(
+                scrissor_rect.min.x,
+                scrissor_rect.min.y,
+                scrissor_rect.width(),
+                scrissor_rect.height(),
+            );
+
+            match &draw_command.primitive {
+                DrawPrimitive::Egui(command) => {
+                    let texture_bind_group = match bind_groups.get(&command.egui_texture) {
+                        Some(texture_resource) => texture_resource,
+                        None => {
+                            vertex_offset += command.vertices_count as u32;
+                            continue;
+                        }
+                    };
+
+                    render_pass.set_bind_group(1, texture_bind_group, &[]);
+
+                    render_pass
+                        .set_vertex_buffer(0, self.vertex_buffer.as_ref().unwrap().slice(..));
+                    render_pass.set_index_buffer(
+                        self.index_buffer.as_ref().unwrap().slice(..),
+                        0,
+                        IndexFormat::Uint32,
+                    );
+
+                    render_pass.draw_indexed(
+                        vertex_offset..(vertex_offset + command.vertices_count as u32),
+                        0,
+                        0..1,
+                    );
+
+                    vertex_offset += command.vertices_count as u32;
+                }
+                DrawPrimitive::PaintCallback(command) => {
+                    let info = egui::PaintCallbackInfo {
+                        viewport: command.rect,
+                        clip_rect: draw_command.clip_rect,
+                        pixels_per_point: self.pixels_per_point,
+                        screen_size_px: [physical_width, physical_height],
+                    };
+
+                    let viewport = info.viewport_in_pixels();
+                    if viewport.width_px > 0 && viewport.height_px > 0 {
+                        requires_reset = true;
+                        render_pass.set_viewport(
+                            viewport.left_px as f32,
+                            viewport.top_px as f32,
+                            viewport.width_px as f32,
+                            viewport.height_px as f32,
+                            0.,
+                            1.,
+                        );
+
+                        command.callback.cb().render(
+                            info,
+                            &mut render_pass,
+                            self.window_entity,
+                            key,
+                            world,
+                        );
+                    }
+                }
             }
         }
 
@@ -477,4 +659,71 @@ pub(crate) fn texture_options_as_sampler_descriptor(
         address_mode_v: address_mode,
         ..Default::default()
     }
+}
+
+/// Callback to execute custom 'wgpu' rendering inside [`EguiNode`] render graph node.
+///
+/// Rendering can be implemented using for example:
+/// * native wgpu rendering libraries,
+/// * or with [`bevy::render::render_phase`] approach.
+pub struct EguiBevyPaintCallback(Box<dyn EguiBevyPaintCallbackImpl>);
+
+impl EguiBevyPaintCallback {
+    /// Creates a new [`egui::epaint::PaintCallback`] from a callback trait instance.
+    pub fn new_paint_callback<T>(rect: egui::Rect, callback: T) -> egui::epaint::PaintCallback
+    where
+        T: EguiBevyPaintCallbackImpl + 'static,
+    {
+        let callback = Self(Box::new(callback));
+        egui::epaint::PaintCallback {
+            rect,
+            callback: std::sync::Arc::new(callback),
+        }
+    }
+
+    pub(crate) fn cb(&self) -> &dyn EguiBevyPaintCallbackImpl {
+        self.0.as_ref()
+    }
+}
+
+/// Callback that executes custom rendering logic
+pub trait EguiBevyPaintCallbackImpl: Send + Sync {
+    /// Paint callback will be rendered in near future, all data must be finalized for render step
+    fn update(
+        &self,
+        info: egui::PaintCallbackInfo,
+        window_entity: Entity,
+        pipeline_key: EguiPipelineKey,
+        world: &mut World,
+    );
+
+    /// Paint callback call before render step
+    ///
+    ///
+    /// Can be used to implement custom render passes
+    /// or to submit command buffers for execution before egui render pass
+    fn prepare_render<'w>(
+        &self,
+        info: egui::PaintCallbackInfo,
+        render_context: &mut RenderContext<'w>,
+        window_entity: Entity,
+        pipeline_key: EguiPipelineKey,
+        world: &'w World,
+    ) {
+        let _ = (info, render_context, window_entity, pipeline_key, world);
+        // Do nothing by default
+    }
+
+    /// Paint callback render step
+    ///
+    /// Native wgpu RenderPass can be retrieved from [`TrackedRenderPass`] by calling
+    /// [`TrackedRenderPass::wgpu_pass`].
+    fn render<'pass>(
+        &self,
+        info: egui::PaintCallbackInfo,
+        render_pass: &mut TrackedRenderPass<'pass>,
+        window_entity: Entity,
+        pipeline_key: EguiPipelineKey,
+        world: &'pass World,
+    );
 }

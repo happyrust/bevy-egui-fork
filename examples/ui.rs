@@ -1,4 +1,4 @@
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiPlugin, EguiSettings};
 
 struct Images {
@@ -21,21 +21,18 @@ impl FromWorld for Images {
 /// - toggling hidpi scaling (by pressing '/' button);
 /// - configuring egui contexts during the startup.
 fn main() {
-    let mut window = Window {
-        title: "布置平台".into(),
-        // present_mode: PresentMode::Fifo,
-        // canvas: Some("#rs-plant".to_string()),
-        prevent_default_event_handling: false,
-        ..Default::default()
-    };
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(window),
-            ..Default::default()
-        }))
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
-        .insert_resource(Msaa::Sample4)
+        // .insert_resource(Msaa::Sample4)
         .init_resource::<UiState>()
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                // You may want this set to `true` if you need virtual keyboard work in mobile browsers.
+                prevent_default_event_handling: false,
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugins(EguiPlugin)
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, configure_ui_state_system)
@@ -67,13 +64,12 @@ fn configure_ui_state_system(mut ui_state: ResMut<UiState>) {
 fn update_ui_scale_factor_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut toggle_scale_factor: Local<Option<bool>>,
-    mut egui_settings: ResMut<EguiSettings>,
-    windows: Query<&Window, With<PrimaryWindow>>,
+    mut contexts: Query<(&mut EguiSettings, &Window)>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Slash) || toggle_scale_factor.is_none() {
         *toggle_scale_factor = Some(!toggle_scale_factor.unwrap_or(true));
 
-        if let Ok(window) = windows.get_single() {
+        if let Ok((mut egui_settings, window)) = contexts.get_single_mut() {
             let scale_factor = if toggle_scale_factor.unwrap() {
                 1.0
             } else {
@@ -124,8 +120,7 @@ fn ui_example_system(
             ui.heading("Side Panel");
 
             ui.horizontal(|ui| {
-                // ui.label("Write something: ");
-                ui.add(egui::Label::new("Write something: ").selectable(true));
+                ui.label("Write something: ");
                 ui.text_edit_singleline(&mut ui_state.label);
             });
 
