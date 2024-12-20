@@ -34,7 +34,7 @@
 //! }
 //!
 //! fn ui_example_system(mut contexts: EguiContexts) {
-//!     egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
+//!     egui::Window::new("Hello").show(contexts.try_ctx_mut()?, |ui| {
 //!         ui.label("world");
 //!     });
 //! }
@@ -101,12 +101,12 @@ use bevy::{
     app::Last,
     asset::{load_internal_asset, AssetEvent, Assets, Handle},
     ecs::{event::EventReader, system::ResMut},
+    image::{Image, ImageSampler},
     prelude::Shader,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_resource::SpecializedRenderPipelines,
-        texture::{Image, ImageSampler},
         ExtractSchedule, Render, RenderApp, RenderSet,
     },
     utils::HashMap,

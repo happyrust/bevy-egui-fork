@@ -6,6 +6,7 @@ use crate::{
 };
 use bevy::{
     ecs::world::{FromWorld, World},
+    image::{Image, ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     prelude::{Entity, Handle, Resource},
     render::{
         render_asset::RenderAssetUsages,
@@ -21,12 +22,9 @@ use bevy::{
             StoreOp, TextureDimension, TextureFormat, TextureSampleType, TextureViewDimension,
             VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
         },
-        sync_world::RenderEntity,
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        texture::{
-            GpuImage, Image, ImageAddressMode, ImageFilterMode, ImageSampler,
-            ImageSamplerDescriptor,
-        },
+        sync_world::RenderEntity,
+        texture::GpuImage,
         view::{ExtractedWindow, ExtractedWindows},
     },
 };
@@ -167,6 +165,7 @@ impl SpecializedRenderPipeline for EguiPipeline {
             depth_stencil: None,
             multisample: MultisampleState::default(),
             push_constant_ranges: vec![],
+            zero_initialize_workgroup_memory: false,
         }
     }
 }
@@ -227,7 +226,6 @@ impl EguiNode {
 
 impl Node for EguiNode {
     fn update(&mut self, world: &mut World) {
-
         let Some(key) = world
             .get_resource::<ExtractedWindows>()
             .and_then(|windows| windows.windows.get(&self.window_entity))

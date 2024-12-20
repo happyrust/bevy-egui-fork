@@ -7,7 +7,7 @@ use crate::{
     RenderTargetSize,
 };
 #[cfg(feature = "render")]
-use bevy::{asset::Assets, render::texture::Image};
+use bevy::{asset::Assets, image::Image};
 use bevy::{
     ecs::{
         event::EventWriter,
@@ -21,13 +21,12 @@ use bevy::{
         ButtonState,
     },
     log::{self, error},
-    prelude::{Entity, EventReader, NonSend, Query, Resource, Time},
+    prelude::{Entity, EventReader, Ime, NonSend, Query, Resource, Time, Vec2},
     time::Real,
     window::{CursorMoved, RequestRedraw},
     winit::{EventLoopProxy, WakeUp},
 };
 use std::{marker::PhantomData, time::Duration};
-use bevy::prelude::{Ime, Vec2};
 
 #[allow(missing_docs)]
 #[derive(SystemParam)]
@@ -344,9 +343,9 @@ pub fn process_input_system(
         // We also check that it's an `ButtonState::Pressed` event, as we don't want to
         // copy, cut or paste on the key release.
         #[cfg(all(
-        feature = "manage_clipboard",
-        not(target_os = "android"),
-        not(target_arch = "wasm32")
+            feature = "manage_clipboard",
+            not(target_os = "android"),
+            not(target_arch = "wasm32")
         ))]
         if command && event.state.is_pressed() {
             match key {
@@ -369,54 +368,10 @@ pub fn process_input_system(
         }
     }
 
-    // for ev in input_events.ev_ime_input.read() {
-    //     match ev {
-    //         Ime::Preedit {
-    //             window,
-    //             value,
-    //             cursor,
-    //         } => {
-    //             if cursor.is_some() {
-    //                 if !*input_method_editor_started {
-    //                     *input_method_editor_started = true;
-    //                     push_ime_event(&mut context_params, window, egui::ImeEvent::Enabled);
-    //                 }
-    //                 push_ime_event(
-    //                     &mut context_params,
-    //                     window,
-    //                     egui::ImeEvent::Preedit(value.clone()),
-    //                 );
-    //             }
-    //         }
-    //         Ime::Commit { window, value } => {
-    //             *input_method_editor_started = false;
-    //             push_ime_event(
-    //                 &mut context_params,
-    //                 window,
-    //                 egui::ImeEvent::Commit(value.clone()),
-    //             )
-    //         }
-    //         Ime::Enabled { window } => {
-    //             push_ime_event(
-    //                 &mut context_params,
-    //                 window,
-    //                 egui::ImeEvent::Enabled,
-    //             );
-    //         }
-    //         Ime::Disabled { window } => {
-    //             push_ime_event(
-    //                 &mut context_params,
-    //                 window,
-    //                 egui::ImeEvent::Disabled,
-    //             );
-    //         }
-    //     }
-    // }
-
     #[cfg(all(
-    feature = "manage_clipboard",
-    target_arch = "wasm32",
-    web_sys_unstable_apis
+        feature = "manage_clipboard",
+        target_arch = "wasm32",
+        web_sys_unstable_apis
     ))]
     while let Some(event) = input_resources.egui_clipboard.try_receive_clipboard_event() {
         // In web, we assume that we have only 1 window per app.
@@ -468,10 +423,10 @@ pub fn process_input_system(
             force: match event.force {
                 Some(bevy::input::touch::ForceTouch::Normalized(force)) => Some(force as f32),
                 Some(bevy::input::touch::ForceTouch::Calibrated {
-                         force,
-                         max_possible_force,
-                         ..
-                     }) => Some((force / max_possible_force) as f32),
+                    force,
+                    max_possible_force,
+                    ..
+                }) => Some((force / max_possible_force) as f32),
                 None => None,
             },
         });
@@ -547,7 +502,7 @@ pub fn process_input_system(
 
     for mut context in context_params.contexts.iter_mut() {
         context.egui_input.modifiers = modifiers;
-        context.egui_input.time = Some(time.elapsed_seconds_f64());
+        context.egui_input.time = Some(time.elapsed_secs_f64());
     }
 
     // In some cases, we may skip certain events. For example, we ignore `ReceivedCharacter` events
@@ -673,9 +628,9 @@ pub fn process_output_system(
         context.egui_output.platform_output = platform_output.clone();
 
         #[cfg(all(
-        feature = "manage_clipboard",
-        not(target_os = "android"),
-        not(all(target_arch = "wasm32", not(web_sys_unstable_apis)))
+            feature = "manage_clipboard",
+            not(target_os = "android"),
+            not(all(target_arch = "wasm32", not(web_sys_unstable_apis)))
         ))]
         if !platform_output.copied_text.is_empty() {
             egui_clipboard.set_contents(&platform_output.copied_text);
@@ -744,7 +699,9 @@ pub fn process_output_system(
     }
 }
 
-fn egui_to_winit_cursor_icon(cursor_icon: egui::CursorIcon) -> Option<bevy::window::SystemCursorIcon> {
+fn egui_to_winit_cursor_icon(
+    cursor_icon: egui::CursorIcon,
+) -> Option<bevy::window::SystemCursorIcon> {
     match cursor_icon {
         egui::CursorIcon::Default => Some(bevy::window::SystemCursorIcon::Default),
         egui::CursorIcon::PointingHand => Some(bevy::window::SystemCursorIcon::Pointer),

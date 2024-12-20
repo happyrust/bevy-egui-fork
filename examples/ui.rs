@@ -1,5 +1,11 @@
 use bevy::prelude::*;
 use bevy_egui::{EguiContexts, EguiPlugin, EguiSettings};
+use egui::Vec2b;
+use egui_taffy::{tui, widgets::TaffySeparator, TuiBuilderLogic};
+use taffy::{
+    prelude::{auto, fr, length, percent, repeat, span},
+    Style,
+};
 
 struct Images {
     bevy_icon: Handle<Image>,
@@ -80,6 +86,94 @@ fn update_ui_scale_factor_system(
     }
 }
 
+fn flex_demo(ctx: &egui::Context) {
+    egui::Window::new("Flex demo")
+        .scroll(Vec2b { x: true, y: true })
+        .show(ctx, |ui| {
+            let default_style = || Style {
+                gap: length(8.),
+                padding: length(8.),
+                ..Default::default()
+            };
+
+            tui(ui, ui.id().with("demo"))
+                .reserve_available_width()
+                .style(Style {
+                    flex_direction: taffy::FlexDirection::Column,
+                    min_size: taffy::Size {
+                        width: percent(1.),
+                        height: auto(),
+                    },
+                    align_items: Some(taffy::AlignItems::Stretch),
+                    max_size: percent(1.),
+                    gap: length(8.),
+                    ..Default::default()
+                })
+                .show(|tui| {
+                    for (justify_content, flex_grow) in [
+                        (taffy::AlignContent::Start, 0.),
+                        (taffy::AlignContent::End, 0.),
+                        (taffy::AlignContent::Stretch, 0.),
+                        (taffy::AlignContent::Stretch, 1.),
+                        (taffy::AlignContent::Center, 0.),
+                        (taffy::AlignContent::SpaceBetween, 0.),
+                        (taffy::AlignContent::SpaceAround, 0.),
+                    ] {
+                        tui.style(Style {
+                            flex_direction: taffy::FlexDirection::Row,
+                            min_size: taffy::Size {
+                                width: auto(),
+                                height: length(100.),
+                            },
+                            ..default_style()
+                        })
+                            .add_with_border(|tui| {
+                                tui.style(Style {
+                                    flex_direction: taffy::FlexDirection::Column,
+                                    size: taffy::Size {
+                                        width: length(200.),
+                                        height: auto(),
+                                    },
+                                    flex_shrink: 0.,
+                                    ..Default::default()
+                                })
+                                    .add(|tui| {
+                                        tui.label(format!("Justify items: {:?}", justify_content));
+                                        tui.label(format!("Flex grow: {:?}", flex_grow));
+                                        tui.label("Align self:");
+                                    });
+
+                                tui.style(Style {
+                                    flex_direction: taffy::FlexDirection::Row,
+                                    justify_content: Some(justify_content),
+                                    flex_grow: 1.,
+                                    min_size: taffy::Size {
+                                        width: auto(),
+                                        height: length(100.),
+                                    },
+                                    ..default_style()
+                                })
+                                    .add_with_border(|tui| {
+                                        for align in [
+                                            taffy::AlignItems::Start,
+                                            taffy::AlignItems::End,
+                                            taffy::AlignItems::Center,
+                                            taffy::AlignItems::Stretch,
+                                        ] {
+                                            tui.style(Style {
+                                                align_self: Some(align),
+                                                flex_grow,
+                                                ..Default::default()
+                                            })
+                                                .ui_add(egui::Button::new(format!("{:?}", align)));
+                                        }
+                                    });
+                            });
+                    }
+                });
+        });
+}
+
 fn ui_example_system(
     mut ui_state: ResMut<UiState>,
     // You are not required to store Egui texture ids in systems. We store this one here just to
@@ -113,6 +207,8 @@ fn ui_example_system(
     }
 
     let ctx = contexts.ctx_mut();
+
+    flex_demo(ctx);
 
     egui::SidePanel::left("side_panel")
         .default_width(200.0)
