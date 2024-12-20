@@ -1,0 +1,1 @@
+RUSTFLAGS=--cfg=web_sys_unstable_apis cargo run --target wasm32-unknown-unknown --example ui 
