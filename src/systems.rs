@@ -1,31 +1,31 @@
 #[cfg(target_arch = "wasm32")]
 use crate::text_agent::{is_mobile_safari, update_text_agent};
 #[cfg(feature = "render")]
-use crate::EguiRenderToTextureHandle;
+use crate::EguiRenderToImage;
 use crate::{
     EguiContext, EguiContextQuery, EguiContextQueryItem, EguiFullOutput, EguiInput, EguiSettings,
     RenderTargetSize,
 };
 #[cfg(feature = "render")]
-use bevy::{asset::Assets, image::Image};
-use bevy::{
-    ecs::{
-        event::EventWriter,
-        query::QueryEntityError,
-        system::{Local, Res, SystemParam},
-    },
-    input::{
-        keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput},
-        mouse::{MouseButton, MouseButtonInput, MouseScrollUnit, MouseWheel},
-        touch::TouchInput,
-        ButtonState,
-    },
-    log::{self, error},
-    prelude::{Entity, EventReader, Ime, NonSend, Query, Resource, Time, Vec2},
-    time::Real,
-    window::{CursorMoved, RequestRedraw},
-    winit::{EventLoopProxy, WakeUp},
+use bevy_asset::Assets;
+use bevy_ecs::{
+    event::EventWriter,
+    prelude::*,
+    query::QueryEntityError,
+    system::{Local, Res, SystemParam},
 };
+#[cfg(feature = "render")]
+use bevy_image::Image;
+use bevy_input::{
+    keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput},
+    mouse::{MouseButton, MouseButtonInput, MouseScrollUnit, MouseWheel},
+    touch::TouchInput,
+    ButtonState,
+};
+use bevy_log::{self, error};
+use bevy_time::{Real, Time};
+use bevy_window::{CursorMoved, Ime, RequestRedraw};
+use bevy_winit::{EventLoopProxy, WakeUp};
 use std::{marker::PhantomData, time::Duration};
 
 #[allow(missing_docs)]
@@ -37,8 +37,8 @@ pub struct InputEvents<'w, 's> {
     pub ev_mouse_wheel: EventReader<'w, 's, MouseWheel>,
     pub ev_keyboard_input: EventReader<'w, 's, KeyboardInput>,
     pub ev_touch: EventReader<'w, 's, TouchInput>,
-    pub ev_ime_input: EventReader<'w, 's, Ime>,
     pub ev_focus: EventReader<'w, 's, KeyboardFocusLost>,
+    pub ev_ime_input: EventReader<'w, 's, Ime>,
 }
 
 impl InputEvents<'_, '_> {
@@ -72,7 +72,7 @@ pub struct InputResources<'w, 's> {
         not(target_os = "android"),
         not(all(target_arch = "wasm32", not(web_sys_unstable_apis)))
     ))]
-    pub egui_clipboard: bevy::ecs::system::ResMut<'w, crate::EguiClipboard>,
+    pub egui_clipboard: bevy_ecs::system::ResMut<'w, crate::EguiClipboard>,
     pub modifier_keys_state: Local<'s, ModifierKeysState>,
     #[system_param(ignore)]
     _marker: PhantomData<&'w ()>,
@@ -98,7 +98,9 @@ impl ContextSystemParams<'_, '_> {
                 err @ QueryEntityError::NoSuchEntity(_)
                 | err @ QueryEntityError::QueryDoesNotMatch(_, _),
             ) => {
-                log::error!("Failed to get an Egui context for a window ({window:?}): {err:?}",);
+                bevy_log::error!(
+                    "Failed to get an Egui context for a window ({window:?}): {err:?}",
+                );
                 None
             }
         }
@@ -111,7 +113,6 @@ pub fn process_input_system(
     mut input_resources: InputResources,
     mut context_params: ContextSystemParams,
     time: Res<Time<Real>>,
-    mut input_method_editor_started: Local<bool>,
 ) {
     // Test whether it's macOS or OS X.
     use std::sync::Once;
@@ -136,7 +137,7 @@ pub fn process_input_system(
         // Copy the events as we might want to pass them to an Egui context later.
         keyboard_input_events.push(event.clone());
         #[cfg(feature = "log_input_events")]
-        log::info!("{event:?}");
+        bevy_log::info!("{event:?}");
 
         let KeyboardInput {
             logical_key, state, ..
@@ -201,7 +202,7 @@ pub fn process_input_system(
             continue;
         };
         #[cfg(feature = "log_input_events")]
-        log::info!("{event:?}");
+        bevy_log::info!("{event:?}");
 
         let button = match event.button {
             MouseButton::Left => Some(egui::PointerButton::Primary),
@@ -231,7 +232,7 @@ pub fn process_input_system(
             continue;
         };
         #[cfg(feature = "log_input_events")]
-        log::info!("{event:?}");
+        bevy_log::info!("{event:?}");
 
         let delta = egui::vec2(event.x, event.y);
 
@@ -273,7 +274,7 @@ pub fn process_input_system(
             continue;
         };
         #[cfg(feature = "log_input_events")]
-        log::info!("{event:?}");
+        bevy_log::info!("{event:?}");
 
         // Aligned with the egui-winit implementation: https://github.com/emilk/egui/blob/0f2b427ff4c0a8c68f6622ec7d0afb7ba7e71bba/crates/egui-winit/src/lib.rs#L348
         match event {
@@ -310,7 +311,7 @@ pub fn process_input_system(
             continue;
         };
         #[cfg(feature = "log_input_events")]
-        log::info!("{event:?}");
+        bevy_log::info!("{event:?}");
 
         if text_event_allowed && event.state.is_pressed() {
             match &event.logical_key {
@@ -377,7 +378,7 @@ pub fn process_input_system(
         // In web, we assume that we have only 1 window per app.
         let mut window_context = context_params.contexts.single_mut();
         #[cfg(feature = "log_input_events")]
-        log::info!("{event:?}");
+        bevy_log::info!("{event:?}");
 
         match event {
             crate::web_clipboard::WebClipboardEvent::Copy => {
@@ -403,7 +404,7 @@ pub fn process_input_system(
             continue;
         };
         #[cfg(feature = "log_input_events")]
-        log::info!("{event:?}");
+        bevy_log::info!("{event:?}");
 
         let touch_id = egui::TouchId::from(event.id);
         let scale_factor = window_context.egui_settings.scale_factor;
@@ -414,15 +415,15 @@ pub fn process_input_system(
             device_id: egui::TouchDeviceId(event.window.to_bits()),
             id: touch_id,
             phase: match event.phase {
-                bevy::input::touch::TouchPhase::Started => egui::TouchPhase::Start,
-                bevy::input::touch::TouchPhase::Moved => egui::TouchPhase::Move,
-                bevy::input::touch::TouchPhase::Ended => egui::TouchPhase::End,
-                bevy::input::touch::TouchPhase::Canceled => egui::TouchPhase::Cancel,
+                bevy_input::touch::TouchPhase::Started => egui::TouchPhase::Start,
+                bevy_input::touch::TouchPhase::Moved => egui::TouchPhase::Move,
+                bevy_input::touch::TouchPhase::Ended => egui::TouchPhase::End,
+                bevy_input::touch::TouchPhase::Canceled => egui::TouchPhase::Cancel,
             },
             pos: egui::pos2(touch_position.0, touch_position.1),
             force: match event.force {
-                Some(bevy::input::touch::ForceTouch::Normalized(force)) => Some(force as f32),
-                Some(bevy::input::touch::ForceTouch::Calibrated {
+                Some(bevy_input::touch::ForceTouch::Normalized(force)) => Some(force as f32),
+                Some(bevy_input::touch::ForceTouch::Calibrated {
                     force,
                     max_possible_force,
                     ..
@@ -438,7 +439,7 @@ pub fn process_input_system(
         {
             // … emit PointerButton resp. PointerMoved events to emulate mouse.
             match event.phase {
-                bevy::input::touch::TouchPhase::Started => {
+                bevy_input::touch::TouchPhase::Started => {
                     window_context.ctx.pointer_touch_id = Some(event.id);
                     // First move the pointer to the right location.
                     window_context
@@ -459,7 +460,7 @@ pub fn process_input_system(
                             modifiers,
                         });
                 }
-                bevy::input::touch::TouchPhase::Moved => {
+                bevy_input::touch::TouchPhase::Moved => {
                     window_context
                         .egui_input
                         .events
@@ -468,7 +469,7 @@ pub fn process_input_system(
                             touch_position.1,
                         )));
                 }
-                bevy::input::touch::TouchPhase::Ended => {
+                bevy_input::touch::TouchPhase::Ended => {
                     window_context.ctx.pointer_touch_id = None;
                     window_context
                         .egui_input
@@ -489,7 +490,7 @@ pub fn process_input_system(
                         update_text_agent(editing_text);
                     }
                 }
-                bevy::input::touch::TouchPhase::Canceled => {
+                bevy_input::touch::TouchPhase::Canceled => {
                     window_context.ctx.pointer_touch_id = None;
                     window_context
                         .egui_input
@@ -525,7 +526,7 @@ pub fn update_contexts_system(
             ));
         }
         #[cfg(feature = "render")]
-        if let Some(EguiRenderToTextureHandle(handle)) = context.render_to_texture.as_deref() {
+        if let Some(EguiRenderToImage { handle, .. }) = context.render_to_image.as_deref() {
             let image = images.get(handle).expect("rtt handle should be valid");
             let size = image.size_f32();
             render_target_size = Some(RenderTargetSize {
@@ -587,9 +588,9 @@ pub fn end_pass_system(
 pub fn process_output_system(
     mut contexts: Query<EguiContextQuery>,
     #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
-    mut egui_clipboard: bevy::ecs::system::ResMut<crate::EguiClipboard>,
+    mut egui_clipboard: bevy_ecs::system::ResMut<crate::EguiClipboard>,
     mut event: EventWriter<RequestRedraw>,
-    #[cfg(windows)] mut last_cursor_icon: Local<bevy::utils::HashMap<Entity, egui::CursorIcon>>,
+    #[cfg(windows)] mut last_cursor_icon: Local<bevy_utils::HashMap<Entity, egui::CursorIcon>>,
     event_loop_proxy: Option<NonSend<EventLoopProxy<WakeUp>>>,
 ) {
     let mut should_request_redraw = false;
@@ -597,7 +598,7 @@ pub fn process_output_system(
     for mut context in contexts.iter_mut() {
         let ctx = context.ctx.get_mut();
         let Some(full_output) = context.egui_full_output.0.take() else {
-            log::error!("bevy_egui pass output has not been prepared (if EguiSettings::run_manually is set to true, make sure to call egui::Context::run or egui::Context::begin_pass and egui::Context::end_pass)");
+            bevy_log::error!("bevy_egui pass output has not been prepared (if EguiSettings::run_manually is set to true, make sure to call egui::Context::run or egui::Context::begin_pass and egui::Context::end_pass)");
             continue;
         };
         let egui::FullOutput {
@@ -608,19 +609,6 @@ pub fn process_output_system(
             viewport_output: _,
         } = full_output;
         let paint_jobs = ctx.tessellate(shapes, pixels_per_point);
-
-        if let Some(ime) = context.egui_output.platform_output.ime {
-            // context.window.ime_enabled = true;
-            let pos = ime.cursor_rect.center_bottom();
-            // context.window.ime_position = Vec2::new(pos.x, pos.y);
-            if let Some(mut window) = context.window {
-                // dbg!(window.ime_enabled);
-                if !window.ime_enabled {
-                    window.ime_enabled = true;
-                }
-                window.ime_position = Vec2::new(pos.x, pos.y);
-            }
-        }
 
         context.render_output.paint_jobs = paint_jobs;
         context.render_output.textures_delta.append(textures_delta);
@@ -636,23 +624,24 @@ pub fn process_output_system(
             egui_clipboard.set_contents(&platform_output.copied_text);
         }
 
-        // if let Some(mut window) = &mut context.window
-        {
-            // let mut set_icon = || {
-            //     window.cursor.icon = egui_to_winit_cursor_icon(platform_output.cursor_icon)
-            //         .unwrap_or(bevy::window::SystemCursorIcon::Default);
-            // };
+        if let Some(mut cursor) = context.cursor {
+            let mut set_icon = || {
+                *cursor = bevy_winit::cursor::CursorIcon::System(
+                    egui_to_winit_cursor_icon(platform_output.cursor_icon)
+                        .unwrap_or(bevy_window::SystemCursorIcon::Default),
+                );
+            };
 
-            // #[cfg(windows)]
-            // {
-            //     let last_cursor_icon = last_cursor_icon.entry(context.render_target).or_default();
-            //     if *last_cursor_icon != platform_output.cursor_icon {
-            //         set_icon();
-            //         *last_cursor_icon = platform_output.cursor_icon;
-            //     }
-            // }
-            // #[cfg(not(windows))]
-            // set_icon();
+            #[cfg(windows)]
+            {
+                let last_cursor_icon = last_cursor_icon.entry(context.render_target).or_default();
+                if *last_cursor_icon != platform_output.cursor_icon {
+                    set_icon();
+                    *last_cursor_icon = platform_output.cursor_icon;
+                }
+            }
+            #[cfg(not(windows))]
+            set_icon();
         }
 
         let needs_repaint = !context.render_output.is_empty();
@@ -689,7 +678,7 @@ pub fn process_output_system(
                 &url,
                 webbrowser::BrowserOptions::new().with_target_hint(target),
             ) {
-                log::error!("Failed to open '{}': {:?}", url, err);
+                bevy_log::error!("Failed to open '{}': {:?}", url, err);
             }
         }
     }
@@ -701,42 +690,42 @@ pub fn process_output_system(
 
 fn egui_to_winit_cursor_icon(
     cursor_icon: egui::CursorIcon,
-) -> Option<bevy::window::SystemCursorIcon> {
+) -> Option<bevy_window::SystemCursorIcon> {
     match cursor_icon {
-        egui::CursorIcon::Default => Some(bevy::window::SystemCursorIcon::Default),
-        egui::CursorIcon::PointingHand => Some(bevy::window::SystemCursorIcon::Pointer),
-        egui::CursorIcon::ResizeHorizontal => Some(bevy::window::SystemCursorIcon::EwResize),
-        egui::CursorIcon::ResizeNeSw => Some(bevy::window::SystemCursorIcon::NeswResize),
-        egui::CursorIcon::ResizeNwSe => Some(bevy::window::SystemCursorIcon::NwseResize),
-        egui::CursorIcon::ResizeVertical => Some(bevy::window::SystemCursorIcon::NsResize),
-        egui::CursorIcon::Text => Some(bevy::window::SystemCursorIcon::Text),
-        egui::CursorIcon::Grab => Some(bevy::window::SystemCursorIcon::Grab),
-        egui::CursorIcon::Grabbing => Some(bevy::window::SystemCursorIcon::Grabbing),
-        egui::CursorIcon::ContextMenu => Some(bevy::window::SystemCursorIcon::ContextMenu),
-        egui::CursorIcon::Help => Some(bevy::window::SystemCursorIcon::Help),
-        egui::CursorIcon::Progress => Some(bevy::window::SystemCursorIcon::Progress),
-        egui::CursorIcon::Wait => Some(bevy::window::SystemCursorIcon::Wait),
-        egui::CursorIcon::Cell => Some(bevy::window::SystemCursorIcon::Cell),
-        egui::CursorIcon::Crosshair => Some(bevy::window::SystemCursorIcon::Crosshair),
-        egui::CursorIcon::VerticalText => Some(bevy::window::SystemCursorIcon::VerticalText),
-        egui::CursorIcon::Alias => Some(bevy::window::SystemCursorIcon::Alias),
-        egui::CursorIcon::Copy => Some(bevy::window::SystemCursorIcon::Copy),
-        egui::CursorIcon::Move => Some(bevy::window::SystemCursorIcon::Move),
-        egui::CursorIcon::NoDrop => Some(bevy::window::SystemCursorIcon::NoDrop),
-        egui::CursorIcon::NotAllowed => Some(bevy::window::SystemCursorIcon::NotAllowed),
-        egui::CursorIcon::AllScroll => Some(bevy::window::SystemCursorIcon::AllScroll),
-        egui::CursorIcon::ZoomIn => Some(bevy::window::SystemCursorIcon::ZoomIn),
-        egui::CursorIcon::ZoomOut => Some(bevy::window::SystemCursorIcon::ZoomOut),
-        egui::CursorIcon::ResizeEast => Some(bevy::window::SystemCursorIcon::EResize),
-        egui::CursorIcon::ResizeSouthEast => Some(bevy::window::SystemCursorIcon::SeResize),
-        egui::CursorIcon::ResizeSouth => Some(bevy::window::SystemCursorIcon::SResize),
-        egui::CursorIcon::ResizeSouthWest => Some(bevy::window::SystemCursorIcon::SwResize),
-        egui::CursorIcon::ResizeWest => Some(bevy::window::SystemCursorIcon::WResize),
-        egui::CursorIcon::ResizeNorthWest => Some(bevy::window::SystemCursorIcon::NwResize),
-        egui::CursorIcon::ResizeNorth => Some(bevy::window::SystemCursorIcon::NResize),
-        egui::CursorIcon::ResizeNorthEast => Some(bevy::window::SystemCursorIcon::NeResize),
-        egui::CursorIcon::ResizeColumn => Some(bevy::window::SystemCursorIcon::ColResize),
-        egui::CursorIcon::ResizeRow => Some(bevy::window::SystemCursorIcon::RowResize),
+        egui::CursorIcon::Default => Some(bevy_window::SystemCursorIcon::Default),
+        egui::CursorIcon::PointingHand => Some(bevy_window::SystemCursorIcon::Pointer),
+        egui::CursorIcon::ResizeHorizontal => Some(bevy_window::SystemCursorIcon::EwResize),
+        egui::CursorIcon::ResizeNeSw => Some(bevy_window::SystemCursorIcon::NeswResize),
+        egui::CursorIcon::ResizeNwSe => Some(bevy_window::SystemCursorIcon::NwseResize),
+        egui::CursorIcon::ResizeVertical => Some(bevy_window::SystemCursorIcon::NsResize),
+        egui::CursorIcon::Text => Some(bevy_window::SystemCursorIcon::Text),
+        egui::CursorIcon::Grab => Some(bevy_window::SystemCursorIcon::Grab),
+        egui::CursorIcon::Grabbing => Some(bevy_window::SystemCursorIcon::Grabbing),
+        egui::CursorIcon::ContextMenu => Some(bevy_window::SystemCursorIcon::ContextMenu),
+        egui::CursorIcon::Help => Some(bevy_window::SystemCursorIcon::Help),
+        egui::CursorIcon::Progress => Some(bevy_window::SystemCursorIcon::Progress),
+        egui::CursorIcon::Wait => Some(bevy_window::SystemCursorIcon::Wait),
+        egui::CursorIcon::Cell => Some(bevy_window::SystemCursorIcon::Cell),
+        egui::CursorIcon::Crosshair => Some(bevy_window::SystemCursorIcon::Crosshair),
+        egui::CursorIcon::VerticalText => Some(bevy_window::SystemCursorIcon::VerticalText),
+        egui::CursorIcon::Alias => Some(bevy_window::SystemCursorIcon::Alias),
+        egui::CursorIcon::Copy => Some(bevy_window::SystemCursorIcon::Copy),
+        egui::CursorIcon::Move => Some(bevy_window::SystemCursorIcon::Move),
+        egui::CursorIcon::NoDrop => Some(bevy_window::SystemCursorIcon::NoDrop),
+        egui::CursorIcon::NotAllowed => Some(bevy_window::SystemCursorIcon::NotAllowed),
+        egui::CursorIcon::AllScroll => Some(bevy_window::SystemCursorIcon::AllScroll),
+        egui::CursorIcon::ZoomIn => Some(bevy_window::SystemCursorIcon::ZoomIn),
+        egui::CursorIcon::ZoomOut => Some(bevy_window::SystemCursorIcon::ZoomOut),
+        egui::CursorIcon::ResizeEast => Some(bevy_window::SystemCursorIcon::EResize),
+        egui::CursorIcon::ResizeSouthEast => Some(bevy_window::SystemCursorIcon::SeResize),
+        egui::CursorIcon::ResizeSouth => Some(bevy_window::SystemCursorIcon::SResize),
+        egui::CursorIcon::ResizeSouthWest => Some(bevy_window::SystemCursorIcon::SwResize),
+        egui::CursorIcon::ResizeWest => Some(bevy_window::SystemCursorIcon::WResize),
+        egui::CursorIcon::ResizeNorthWest => Some(bevy_window::SystemCursorIcon::NwResize),
+        egui::CursorIcon::ResizeNorth => Some(bevy_window::SystemCursorIcon::NResize),
+        egui::CursorIcon::ResizeNorthEast => Some(bevy_window::SystemCursorIcon::NeResize),
+        egui::CursorIcon::ResizeColumn => Some(bevy_window::SystemCursorIcon::ColResize),
+        egui::CursorIcon::ResizeRow => Some(bevy_window::SystemCursorIcon::RowResize),
         egui::CursorIcon::None => None,
     }
 }

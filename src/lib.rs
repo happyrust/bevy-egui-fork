@@ -4,16 +4,23 @@
 //!
 //! **Trying out:**
 //!
-//! An example WASM project is live at [mvlabat.github.io/bevy_egui_web_showcase](https://mvlabat.github.io/bevy_egui_web_showcase/index.html) [[source](https://github.com/mvlabat/bevy_egui_web_showcase)].
+//! An example WASM project is live at [vladbat00.github.io/bevy_egui_web_showcase](https://vladbat00.github.io/bevy_egui_web_showcase/index.html) [[source](https://github.com/vladbat00/bevy_egui_web_showcase)].
 //!
 //! **Features:**
 //! - Desktop and web platforms support
-//! - Clipboard (web support is limited to the same window, see [rust-windowing/winit#1829](https://github.com/rust-windowing/winit/issues/1829))
+//! - Clipboard
 //! - Opening URLs
-//! - Multiple windows support (see [./examples/two_windows.rs](https://github.com/mvlabat/bevy_egui/blob/v0.20.1/examples/two_windows.rs))
+//! - Multiple windows support (see [./examples/two_windows.rs](https://github.com/vladbat00/bevy_egui/blob/v0.29.0/examples/two_windows.rs))
+//! - Paint callback support (see [./examples/paint_callback.rs](https://github.com/vladbat00/bevy_egui/blob/v0.29.0/examples/paint_callback.rs))
+//! - Mobile web virtual keyboard (still rough support and only works without prevent_default_event_handling set to false on the WindowPlugin primary_window)
 //!
-//! `bevy_egui` can be compiled with using only `bevy` and `egui` as dependencies: `manage_clipboard` and `open_url` features,
-//! that require additional crates, can be disabled.
+//! ## Dependencies
+//!
+//! On Linux, this crate requires certain parts of [XCB](https://xcb.freedesktop.org/) to be installed on your system. On Debian-based systems, these can be installed with the following command:
+//!
+//! ```
+//! $ sudo apt install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+//! ```
 //!
 //! ## Usage
 //!
@@ -34,13 +41,13 @@
 //! }
 //!
 //! fn ui_example_system(mut contexts: EguiContexts) {
-//!     egui::Window::new("Hello").show(contexts.try_ctx_mut()?, |ui| {
+//!     egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
 //!         ui.label("world");
 //!     });
 //! }
 //! ```
 //!
-//! For a more advanced example, see [examples/ui.rs](https://github.com/mvlabat/bevy_egui/blob/v0.20.1/examples/ui.rs).
+//! For a more advanced example, see [examples/ui.rs](https://github.com/vladbat00/bevy_egui/blob/v0.20.1/examples/ui.rs).
 //!
 //! ```bash
 //! cargo run --example ui
@@ -61,8 +68,6 @@ compile_error!(include_str!("../static/error_web_sys_unstable_apis.txt"));
 #[cfg(feature = "render")]
 pub mod egui_node;
 /// Egui render node for rendering to a texture.
-#[cfg(feature = "render")]
-pub mod egui_render_to_texture_node;
 /// Plugin systems for the render app.
 #[cfg(feature = "render")]
 pub mod render_systems;
@@ -82,6 +87,11 @@ pub mod web_clipboard;
 pub use egui;
 
 use crate::systems::*;
+#[cfg(target_arch = "wasm32")]
+use crate::text_agent::{
+    install_text_agent, is_mobile_safari, process_safari_virtual_keyboard, propagate_text,
+    SafariVirtualKeyboardHack, TextAgentChannel, VirtualTouchInfo,
+};
 #[cfg(feature = "render")]
 use crate::{
     egui_node::{EguiPipeline, EGUI_SHADER_HANDLE},
@@ -92,56 +102,36 @@ use crate::{
     not(any(target_arch = "wasm32", target_os = "android"))
 ))]
 use arboard::Clipboard;
+use bevy_app::prelude::*;
 #[cfg(feature = "render")]
-use bevy::ecs::query::Or;
-#[allow(unused_imports)]
-use bevy::log;
+use bevy_asset::{load_internal_asset, AssetEvent, Assets, Handle};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{
+    prelude::*,
+    query::{QueryData, QueryEntityError},
+    schedule::apply_deferred,
+    system::SystemParam,
+};
 #[cfg(feature = "render")]
-use bevy::{
-    app::Last,
-    asset::{load_internal_asset, AssetEvent, Assets, Handle},
-    ecs::{event::EventReader, system::ResMut},
-    image::{Image, ImageSampler},
-    prelude::Shader,
-    render::{
-        extract_component::{ExtractComponent, ExtractComponentPlugin},
-        extract_resource::{ExtractResource, ExtractResourcePlugin},
-        render_resource::SpecializedRenderPipelines,
-        ExtractSchedule, Render, RenderApp, RenderSet,
-    },
-    utils::HashMap,
+use bevy_image::{Image, ImageSampler};
+use bevy_input::InputSystem;
+use bevy_reflect::Reflect;
+#[cfg(feature = "render")]
+use bevy_render::{
+    extract_component::{ExtractComponent, ExtractComponentPlugin},
+    extract_resource::{ExtractResource, ExtractResourcePlugin},
+    render_resource::{LoadOp, SpecializedRenderPipelines},
+    ExtractSchedule, Render, RenderApp, RenderSet,
 };
-use bevy::{
-    app::{App, Plugin, PostUpdate, PreStartup, PreUpdate},
-    ecs::{
-        query::{QueryData, QueryEntityError},
-        schedule::apply_deferred,
-        system::SystemParam,
-    },
-    input::InputSystem,
-    prelude::{
-        Added, Commands, Component, Deref, DerefMut, Entity, IntoSystemConfigs, Query, SystemSet,
-        With, Without,
-    },
-    reflect::Reflect,
-    window::{PrimaryWindow, Window},
-};
-use log::info;
-use std::borrow::Cow;
+use bevy_window::{PrimaryWindow, SystemCursorIcon, Window};
+use bevy_winit::cursor::CursorIcon;
 #[cfg(all(
     feature = "manage_clipboard",
     not(any(target_arch = "wasm32", target_os = "android"))
 ))]
 use std::cell::{RefCell, RefMut};
-
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
-
-#[cfg(target_arch = "wasm32")]
-use crate::text_agent::{
-    install_text_agent, is_mobile_safari, process_safari_virtual_keyboard, propagate_text,
-    SafariVirtualKeyboardHack, TextAgentChannel, VirtualTouchInfo,
-};
 
 /// Adds all Egui resources and render graph nodes.
 pub struct EguiPlugin;
@@ -210,7 +200,7 @@ pub struct EguiFullOutput(pub Option<egui::FullOutput>);
 ///
 /// The resource is available only if `manage_clipboard` feature is enabled.
 #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
-#[derive(Default, bevy::ecs::system::Resource)]
+#[derive(Default, bevy_ecs::system::Resource)]
 pub struct EguiClipboard {
     #[cfg(not(target_arch = "wasm32"))]
     clipboard: thread_local::ThreadLocal<Option<RefCell<Clipboard>>>,
@@ -260,7 +250,7 @@ impl EguiClipboard {
     fn set_contents_impl(&mut self, contents: &str) {
         if let Some(mut clipboard) = self.get() {
             if let Err(err) = clipboard.set_text(contents.to_owned()) {
-                log::error!("Failed to set clipboard contents: {:?}", err);
+                bevy_log::error!("Failed to set clipboard contents: {:?}", err);
             }
         }
     }
@@ -275,7 +265,7 @@ impl EguiClipboard {
         if let Some(mut clipboard) = self.get() {
             match clipboard.get_text() {
                 Ok(contents) => return Some(contents),
-                Err(err) => log::error!("Failed to get clipboard contents: {:?}", err),
+                Err(err) => bevy_log::error!("Failed to get clipboard contents: {:?}", err),
             }
         };
         None
@@ -294,7 +284,7 @@ impl EguiClipboard {
                 Clipboard::new()
                     .map(RefCell::new)
                     .map_err(|err| {
-                        log::error!("Failed to initialize clipboard: {:?}", err);
+                        bevy_log::error!("Failed to initialize clipboard: {:?}", err);
                     })
                     .ok()
             })
@@ -375,7 +365,7 @@ impl EguiContext {
 type EguiContextsFilter = With<Window>;
 
 #[cfg(feature = "render")]
-type EguiContextsFilter = Or<(With<Window>, With<EguiRenderToTextureHandle>)>;
+type EguiContextsFilter = Or<(With<Window>, With<EguiRenderToImage>)>;
 
 #[derive(SystemParam)]
 /// A helper SystemParam that provides a way to get [`EguiContext`] with less boilerplate and
@@ -419,9 +409,9 @@ impl EguiContexts<'_, '_> {
 
     /// Egui context of a specific entity.
     #[must_use]
-    pub fn ctx_for_entity_mut(&mut self, enity: Entity) -> &mut egui::Context {
-        self.try_ctx_for_entity_mut(enity)
-            .unwrap_or_else(|| panic!("`EguiContexts::ctx_for_window_mut` was called for an uninitialized context (entity {enity:?}), make sure your system is run after [`EguiSet::InitContexts`] (or [`EguiStartupSet::InitContexts`] for startup systems)"))
+    pub fn ctx_for_entity_mut(&mut self, entity: Entity) -> &mut egui::Context {
+        self.try_ctx_for_entity_mut(entity)
+            .unwrap_or_else(|| panic!("`EguiContexts::ctx_for_window_mut` was called for an uninitialized context (entity {entity:?}), make sure your system is run after [`EguiSet::InitContexts`] (or [`EguiStartupSet::InitContexts`] for startup systems)"))
     }
 
     /// Fallible variant of [`EguiContexts::ctx_for_entity_mut`].
@@ -558,16 +548,38 @@ impl EguiContexts<'_, '_> {
     }
 }
 
-/// Contains the texture [`Image`] to render to.
+/// Contexts with this component will render UI to a specified image.
+///
+/// You can create an entity just with this component, `bevy_egui` will initialize an [`EguiContext`]
+/// automatically.
 #[cfg(feature = "render")]
 #[derive(Component, Clone, Debug, ExtractComponent)]
-pub struct EguiRenderToTextureHandle(pub Handle<Image>);
+pub struct EguiRenderToImage {
+    /// A handle of an image to render to.
+    pub handle: Handle<Image>,
+    /// Customizable [`LoadOp`] for the render node which will be created for this context.
+    ///
+    /// You'll likely want [`LoadOp::Clear`], unless you need to draw the UI on top of existing
+    /// pixels of the image.
+    pub load_op: LoadOp<wgpu_types::Color>,
+}
+
+#[cfg(feature = "render")]
+impl EguiRenderToImage {
+    /// Creates a component from an image handle and sets [`EguiRenderToImage::load_op`] to [`LoadOp::Clear].
+    pub fn new(handle: Handle<Image>) -> Self {
+        Self {
+            handle,
+            load_op: LoadOp::Clear(wgpu_types::Color::TRANSPARENT),
+        }
+    }
+}
 
 /// A resource for storing `bevy_egui` user textures.
-#[derive(Clone, bevy::ecs::system::Resource, Default, ExtractResource)]
+#[derive(Clone, bevy_ecs::system::Resource, Default, ExtractResource)]
 #[cfg(feature = "render")]
 pub struct EguiUserTextures {
-    textures: HashMap<Handle<Image>, u64>,
+    textures: bevy_utils::HashMap<Handle<Image>, u64>,
     last_texture_id: u64,
 }
 
@@ -583,7 +595,7 @@ impl EguiUserTextures {
     pub fn add_image(&mut self, image: Handle<Image>) -> egui::TextureId {
         let id = *self.textures.entry(image.clone()).or_insert_with(|| {
             let id = self.last_texture_id;
-            log::debug!("Add a new image (id: {}, handle: {:?})", id, image);
+            bevy_log::debug!("Add a new image (id: {}, handle: {:?})", id, image);
             self.last_texture_id += 1;
             id
         });
@@ -593,7 +605,7 @@ impl EguiUserTextures {
     /// Removes the image handle and an Egui texture id associated with it.
     pub fn remove_image(&mut self, image: &Handle<Image>) -> Option<egui::TextureId> {
         let id = self.textures.remove(image);
-        log::debug!("Remove image (id: {:?}, handle: {:?})", id, image);
+        bevy_log::debug!("Remove image (id: {:?}, handle: {:?})", id, image);
         id.map(egui::TextureId::User)
     }
 
@@ -684,7 +696,7 @@ impl Plugin for EguiPlugin {
             app.add_plugins(ExtractComponentPlugin::<EguiSettings>::default());
             app.add_plugins(ExtractComponentPlugin::<RenderTargetSize>::default());
             app.add_plugins(ExtractComponentPlugin::<EguiRenderOutput>::default());
-            app.add_plugins(ExtractComponentPlugin::<EguiRenderToTextureHandle>::default());
+            app.add_plugins(ExtractComponentPlugin::<EguiRenderToImage>::default());
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -706,7 +718,8 @@ impl Plugin for EguiPlugin {
             PreStartup,
             (
                 setup_new_windows_system,
-                setup_render_to_texture_handles_system,
+                #[cfg(feature = "render")]
+                setup_render_to_image_handles_system,
                 apply_deferred,
                 update_contexts_system,
             )
@@ -718,7 +731,8 @@ impl Plugin for EguiPlugin {
             PreUpdate,
             (
                 setup_new_windows_system,
-                setup_render_to_texture_handles_system,
+                #[cfg(feature = "render")]
+                setup_render_to_image_handles_system,
                 apply_deferred,
                 update_contexts_system,
             )
@@ -736,7 +750,7 @@ impl Plugin for EguiPlugin {
         {
             use std::sync::{LazyLock, Mutex};
 
-            let maybe_window_plugin = app.get_added_plugins::<bevy::prelude::WindowPlugin>();
+            let maybe_window_plugin = app.get_added_plugins::<bevy_window::WindowPlugin>();
 
             if !maybe_window_plugin.is_empty()
                 && maybe_window_plugin[0].primary_window.is_some()
@@ -817,7 +831,12 @@ impl Plugin for EguiPlugin {
         .add_systems(Last, free_egui_textures_system);
 
         #[cfg(feature = "render")]
-        load_internal_asset!(app, EGUI_SHADER_HANDLE, "egui.wgsl", Shader::from_wgsl);
+        load_internal_asset!(
+            app,
+            EGUI_SHADER_HANDLE,
+            "egui.wgsl",
+            bevy_render::render_resource::Shader::from_wgsl
+        );
     }
 
     #[cfg(feature = "render")]
@@ -828,10 +847,14 @@ impl Plugin for EguiPlugin {
                 .init_resource::<SpecializedRenderPipelines<EguiPipeline>>()
                 .init_resource::<EguiTransforms>()
                 .add_systems(
+                    // Seems to be just the set to add/remove nodes, as it'll run before
+                    // `RenderSet::ExtractCommands` where render nodes get updated.
                     ExtractSchedule,
                     (
-                        render_systems::setup_new_windows_render_system,
-                        render_systems::setup_new_rtt_render_system,
+                        render_systems::setup_new_window_nodes_system,
+                        render_systems::teardown_window_nodes_system,
+                        render_systems::setup_new_render_to_image_nodes_system,
+                        render_systems::teardown_render_to_image_nodes_system,
                     ),
                 )
                 .add_systems(
@@ -873,9 +896,11 @@ pub struct EguiContextQuery {
     pub render_target_size: &'static mut RenderTargetSize,
     /// [`Window`] component, when rendering to a window.
     pub window: Option<&'static mut Window>,
-    /// [`EguiRenderToTextureHandle`] component, when rendering to a texture.
+    /// [`CursorIcon`] component.
+    pub cursor: Option<&'static mut CursorIcon>,
+    /// [`EguiRenderToImage`] component, when rendering to a texture.
     #[cfg(feature = "render")]
-    pub render_to_texture: Option<&'static mut EguiRenderToTextureHandle>,
+    pub render_to_image: Option<&'static mut EguiRenderToImage>,
 }
 
 impl EguiContextQueryItem<'_> {
@@ -900,8 +925,8 @@ impl EguiContextQueryItem<'_> {
 
 /// Contains textures allocated and painted by Egui.
 #[cfg(feature = "render")]
-#[derive(bevy::ecs::system::Resource, Deref, DerefMut, Default)]
-pub struct EguiManagedTextures(pub HashMap<(Entity, u64), EguiManagedTexture>);
+#[derive(bevy_ecs::system::Resource, Deref, DerefMut, Default)]
+pub struct EguiManagedTextures(pub bevy_utils::HashMap<(Entity, u64), EguiManagedTexture>);
 
 /// Represents a texture allocated and painted by Egui.
 #[cfg(feature = "render")]
@@ -926,23 +951,19 @@ pub fn setup_new_windows_system(
             EguiFullOutput::default(),
             EguiOutput::default(),
             RenderTargetSize::default(),
+            CursorIcon::System(SystemCursorIcon::Default),
         ));
     }
 }
+
 /// Adds bevy_egui components to newly created windows.
-pub fn setup_render_to_texture_handles_system(
+#[cfg(feature = "render")]
+pub fn setup_render_to_image_handles_system(
     mut commands: Commands,
-    #[cfg(feature = "render")] new_render_to_texture_targets: Query<
-        Entity,
-        (Added<EguiRenderToTextureHandle>, Without<EguiContext>),
-    >,
-    #[cfg(not(feature = "render"))] new_render_to_texture_targets: Query<
-        Entity,
-        Without<EguiContext>,
-    >,
+    new_render_to_image_targets: Query<Entity, (Added<EguiRenderToImage>, Without<EguiContext>)>,
 ) {
-    for render_to_texture_target in new_render_to_texture_targets.iter() {
-        commands.entity(render_to_texture_target).insert((
+    for render_to_image_target in new_render_to_image_targets.iter() {
+        commands.entity(render_to_image_target).insert((
             EguiContext::default(),
             EguiSettings::default(),
             EguiRenderOutput::default(),
@@ -960,7 +981,7 @@ pub fn setup_render_to_texture_handles_system(
 pub fn update_egui_textures_system(
     mut egui_render_output: Query<
         (Entity, &mut EguiRenderOutput),
-        Or<(With<Window>, With<EguiRenderToTextureHandle>)>,
+        Or<(With<Window>, With<EguiRenderToImage>)>,
     >,
     mut egui_managed_textures: ResMut<EguiManagedTextures>,
     mut image_assets: ResMut<Assets<Image>>,
@@ -989,7 +1010,7 @@ pub fn update_egui_textures_system(
                         egui_node::color_image_as_bevy_image(&managed_texture.color_image, sampler);
                     managed_texture.handle = image_assets.add(image);
                 } else {
-                    log::warn!("Partial update of a missing texture (id: {:?})", texture_id);
+                    bevy_log::warn!("Partial update of a missing texture (id: {:?})", texture_id);
                 }
             } else {
                 // Full update.
@@ -1021,7 +1042,7 @@ fn free_egui_textures_system(
     mut egui_user_textures: ResMut<EguiUserTextures>,
     mut egui_render_output: Query<
         (Entity, &mut EguiRenderOutput),
-        Or<(With<Window>, With<EguiRenderToTextureHandle>)>,
+        Or<(With<Window>, With<EguiRenderToImage>)>,
     >,
     mut egui_managed_textures: ResMut<EguiManagedTextures>,
     mut image_assets: ResMut<Assets<Image>>,

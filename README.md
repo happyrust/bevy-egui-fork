@@ -10,24 +10,21 @@
 [![Documentation](https://docs.rs/bevy_egui/badge.svg)](https://docs.rs/bevy_egui)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/bevyengine/bevy/blob/master/LICENSE)
 [![Downloads](https://img.shields.io/crates/d/bevy_egui.svg)](https://crates.io/crates/bevy_egui)
-[![Rust](https://github.com/mvlabat/bevy_egui/workflows/CI/badge.svg)](https://github.com/mvlabat/bevy_egui/actions)
+[![Rust](https://github.com/vladbat00/bevy_egui/workflows/CI/badge.svg)](https://github.com/vladbat00/bevy_egui/actions)
 
 This crate provides an [Egui](https://github.com/emilk/egui) integration for the [Bevy](https://github.com/bevyengine/bevy) game engine.
 
 **Trying out:**
 
-An example WASM project is live at [mvlabat.github.io/bevy_egui_web_showcase](https://mvlabat.github.io/bevy_egui_web_showcase/index.html) [[source](https://github.com/mvlabat/bevy_egui_web_showcase)].
+An example WASM project is live at [vladbat00.github.io/bevy_egui_web_showcase](https://vladbat00.github.io/bevy_egui_web_showcase/index.html) [[source](https://github.com/vladbat00/bevy_egui_web_showcase)].
 
 **Features:**
 - Desktop and web platforms support
 - Clipboard
 - Opening URLs
-- Multiple windows support (see [./examples/two_windows.rs](https://github.com/mvlabat/bevy_egui/blob/v0.29.0/examples/two_windows.rs))
-- Paint callback support (see [./examples/paint_callback.rs](https://github.com/mvlabat/bevy_egui/blob/v0.29.0/examples/paint_callback.rs))
+- Multiple windows support (see [./examples/two_windows.rs](https://github.com/vladbat00/bevy_egui/blob/v0.29.0/examples/two_windows.rs))
+- Paint callback support (see [./examples/paint_callback.rs](https://github.com/vladbat00/bevy_egui/blob/v0.29.0/examples/paint_callback.rs))
 - Mobile web virtual keyboard (still rough support and only works without prevent_default_event_handling set to false on the WindowPlugin primary_window)
-
-`bevy_egui` can be compiled with using only `bevy`, `egui` and `bytemuck` as dependencies: `manage_clipboard` and `open_url` features,
-that require additional crates, can be disabled.
 
 ![bevy_egui](bevy_egui.png)
 
@@ -45,8 +42,8 @@ Here's a minimal usage example:
 ```toml
 # Cargo.toml
 [dependencies]
-bevy = "0.14"
-bevy_egui = "0.30"
+bevy = "0.15"
+bevy_egui = "0.31"
 ```
 
 ```rust
@@ -71,7 +68,7 @@ fn ui_example_system(mut contexts: EguiContexts) {
 
 ```
 
-For a more advanced example, see [examples/ui.rs](https://github.com/mvlabat/bevy_egui/blob/v0.20.1/examples/ui.rs).
+For a more advanced example, see [examples/ui.rs](https://github.com/vladbat00/bevy_egui/blob/v0.20.1/examples/ui.rs).
 
 ```bash
 cargo run --example ui
@@ -83,10 +80,11 @@ cargo run --example ui
 
 ## Bevy support table
 
-**Note:** if you're looking for a `bevy_egui` version that supports `main` branch of Bevy, check out [open PRs](https://github.com/mvlabat/bevy_egui/pulls), there's a great chance we've already started working on the future Bevy release support.
+**Note:** if you're looking for a `bevy_egui` version that supports `main` branch of Bevy, check out [open PRs](https://github.com/vladbat00/bevy_egui/pulls), there's a great chance we've already started working on the future Bevy release support.
 
 | bevy | bevy_egui |
 |------|-----------|
+| 0.15 | 0.31      |
 | 0.14 | 0.28-0.30 |
 | 0.13 | 0.25-0.27 |
 | 0.12 | 0.23-0.24 |
