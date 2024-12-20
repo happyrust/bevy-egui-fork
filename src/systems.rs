@@ -95,7 +95,7 @@ impl ContextSystemParams<'_, '_> {
                 panic!("Failed to get an Egui context for a window ({window:?}): {err:?}");
             }
             Err(
-                err @ QueryEntityError::NoSuchEntity(_)
+                err @ QueryEntityError::NoSuchEntity(..)
                 | err @ QueryEntityError::QueryDoesNotMatch(_, _),
             ) => {
                 bevy_log::error!(
