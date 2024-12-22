@@ -18,8 +18,8 @@
 //!
 //! On Linux, this crate requires certain parts of [XCB](https://xcb.freedesktop.org/) to be installed on your system. On Debian-based systems, these can be installed with the following command:
 //!
-//! ```
-//! $ sudo apt install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
+//! ```bash
+//! sudo apt install libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 //! ```
 //!
 //! ## Usage
@@ -115,9 +115,15 @@ use bevy_ecs::{
 #[cfg(feature = "render")]
 use bevy_image::{Image, ImageSampler};
 use bevy_input::InputSystem;
+#[cfg(feature = "render")]
+use bevy_picking::{
+    backend::{HitData, PointerHits},
+    pointer::{PointerId, PointerLocation},
+};
 use bevy_reflect::Reflect;
 #[cfg(feature = "render")]
 use bevy_render::{
+    camera::NormalizedRenderTarget,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_resource::{LoadOp, SpecializedRenderPipelines},
@@ -162,6 +168,9 @@ pub struct EguiSettings {
     /// If not specified, `_self` will be used. Only matters in a web browser.
     #[cfg(feature = "open_url")]
     pub default_open_url_target: Option<String>,
+    /// Controls if Egui should capture pointer input when using [`bevy_picking`].
+    #[cfg(feature = "render")]
+    pub capture_pointer_input: bool,
 }
 
 // Just to keep the PartialEq
@@ -182,6 +191,8 @@ impl Default for EguiSettings {
             scale_factor: 1.0,
             #[cfg(feature = "open_url")]
             default_open_url_target: None,
+            #[cfg(feature = "render")]
+            capture_pointer_input: true,
         }
     }
 }
@@ -810,6 +821,8 @@ impl Plugin for EguiPlugin {
             PostUpdate,
             process_output_system.in_set(EguiSet::ProcessOutput),
         );
+        #[cfg(feature = "render")]
+        app.add_systems(PostUpdate, capture_pointer_input);
 
         #[cfg(feature = "render")]
         app.add_systems(
@@ -953,6 +966,35 @@ pub fn setup_new_windows_system(
             RenderTargetSize::default(),
             CursorIcon::System(SystemCursorIcon::Default),
         ));
+    }
+}
+
+/// The ordering value used for bevy_picking.
+#[cfg(feature = "render")]
+pub const PICKING_ORDER: f32 = 1_000_000.0;
+/// Captures pointers on egui windows for bevy_picking.
+#[cfg(feature = "render")]
+pub fn capture_pointer_input(
+    pointers: Query<(&PointerId, &PointerLocation)>,
+    mut egui_context: Query<(Entity, &mut EguiContext, &EguiSettings)>,
+    mut output: EventWriter<PointerHits>,
+) {
+    for (pointer, location) in pointers
+        .iter()
+        .filter_map(|(i, p)| p.location.as_ref().map(|l| (i, l)))
+    {
+        if let NormalizedRenderTarget::Window(id) = location.target {
+            if let Ok((entity, mut ctx, settings)) = egui_context.get_mut(id.entity()) {
+                if settings.capture_pointer_input && ctx.get_mut().wants_pointer_input() {
+                    let entry = (entity, HitData::new(entity, 0.0, None, None));
+                    output.send(PointerHits::new(
+                        *pointer,
+                        Vec::from([entry]),
+                        PICKING_ORDER,
+                    ));
+                }
+            }
+        }
     }
 }
 

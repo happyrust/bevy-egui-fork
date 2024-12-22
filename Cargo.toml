@@ -24,6 +24,7 @@ default_fonts = ["egui/default_fonts"]
 render = [
     "bevy_asset",
     "bevy_image",
+    "bevy_picking",
     "bevy_render",
     "encase",
     "bytemuck",
@@ -74,14 +75,15 @@ bevy_math = { path = "../bevy/crates/bevy_math"}
 bevy_reflect = { path = "../bevy/crates/bevy_reflect"}
 bevy_window = { path = "../bevy/crates/bevy_window"}
 bevy_time = { path = "../bevy/crates/bevy_time"}
+bevy_picking = { path = "../bevy/crates/bevy_picking"}
 bevy_winit = { path = "../bevy/crates/bevy_winit"}
 bevy_utils = { path = "../bevy/crates/bevy_utils"}
 bytemuck = { version = "1", optional = true }
 egui = { path = "../egui/crates/egui", default-features = false, features = [
     "bytemuck",
 ] }
-webbrowser = { version = "0.8.2", optional = true }
 wgpu-types = { path = "../wgpu/wgpu-types", optional = true }
+webbrowser = { version = "1.0.1", optional = true }
 
 # `render` feature
 bevy_asset = { path = "../bevy/crates/bevy_asset", optional = true }
