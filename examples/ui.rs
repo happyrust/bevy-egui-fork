@@ -1,5 +1,8 @@
-use bevy::prelude::*;
-use bevy_egui::{EguiContexts, EguiPlugin, EguiSettings};
+use bevy::{
+    log::{Level, LogPlugin},
+    prelude::*,
+};
+use bevy_egui::{EguiContextSettings, EguiContexts, EguiPlugin};
 
 struct Images {
     bevy_icon: Handle<Image>,
@@ -22,17 +25,24 @@ impl FromWorld for Images {
 /// - configuring egui contexts during the startup.
 fn main() {
     App::new()
-        .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
-        // .insert_resource(Msaa::Sample4)
+        .insert_resource(ClearColor(Color::BLACK))
         .init_resource::<UiState>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                // You may want this set to `true` if you need virtual keyboard work in mobile browsers.
-                prevent_default_event_handling: false,
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(
+            DefaultPlugins
+                .set(LogPlugin {
+                    filter: "warn,ui=info".to_string(),
+                    level: Level::INFO,
+                    ..Default::default()
+                })
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        // You may want this set to `true` if you need virtual keyboard work in mobile browsers.
+                        prevent_default_event_handling: false,
+                        ..default()
+                    }),
+                    ..default()
+                }),
+        )
         .add_plugins(EguiPlugin)
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, configure_ui_state_system)
@@ -52,7 +62,7 @@ struct UiState {
 
 fn configure_visuals_system(mut contexts: EguiContexts) {
     contexts.ctx_mut().set_visuals(egui::Visuals {
-        window_rounding: 0.0.into(),
+        window_corner_radius: 0.0.into(),
         ..Default::default()
     });
 }
@@ -64,7 +74,7 @@ fn configure_ui_state_system(mut ui_state: ResMut<UiState>) {
 fn update_ui_scale_factor_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut toggle_scale_factor: Local<Option<bool>>,
-    mut contexts: Query<(&mut EguiSettings, &Window)>,
+    mut contexts: Query<(&mut EguiContextSettings, &Window)>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Slash) || toggle_scale_factor.is_none() {
         *toggle_scale_factor = Some(!toggle_scale_factor.unwrap_or(true));
@@ -172,7 +182,7 @@ fn ui_example_system(
         ui.heading("Egui Template");
         ui.hyperlink("https://github.com/emilk/egui_template");
         ui.add(egui::github_link_file_line!(
-            "https://github.com/mvlabat/bevy_egui/blob/main/",
+            "https://github.com/vladbat00/bevy_egui/blob/main/",
             "Direct link to source code."
         ));
         egui::warn_if_debug_build(ui);
@@ -234,7 +244,7 @@ impl Default for Painting {
 impl Painting {
     pub fn ui_control(&mut self, ui: &mut egui::Ui) -> egui::Response {
         ui.horizontal(|ui| {
-            egui::stroke_ui(ui, &mut self.stroke, "Stroke");
+            ui.add(&mut self.stroke);
             ui.separator();
             if ui.button("Clear Painting").clicked() {
                 self.lines.clear();
