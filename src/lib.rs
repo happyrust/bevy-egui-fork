@@ -321,7 +321,7 @@ pub struct EguiFullOutput(pub Option<egui::FullOutput>);
 ///
 /// The resource is available only if `manage_clipboard` feature is enabled.
 #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
-#[derive(Default, bevy_ecs::system::Resource)]
+#[derive(Default, bevy_ecs::resource::Resource)]
 pub struct EguiClipboard {
     #[cfg(not(target_arch = "wasm32"))]
     clipboard: thread_local::ThreadLocal<Option<RefCell<Clipboard>>>,
@@ -628,10 +628,10 @@ impl EguiRenderToImage {
 }
 
 /// A resource for storing `bevy_egui` user textures.
-#[derive(Clone, bevy_ecs::system::Resource, ExtractResource)]
+#[derive(Clone, bevy_ecs::resource::Resource, ExtractResource)]
 #[cfg(feature = "render")]
 pub struct EguiUserTextures {
-    textures: bevy_utils::HashMap<Handle<Image>, u64>,
+    textures: bevy_platform_support::collections::hash_map::HashMap<Handle<Image>, u64>,
     free_list: Vec<u64>,
 }
 
@@ -639,7 +639,7 @@ pub struct EguiUserTextures {
 impl Default for EguiUserTextures {
     fn default() -> Self {
         Self {
-            textures: bevy_utils::HashMap::new(),
+            textures: bevy_platform_support::collections::hash_map::HashMap::default(),
             free_list: vec![0],
         }
     }
@@ -1058,8 +1058,8 @@ fn input_system_is_enabled(
 
 /// Contains textures allocated and painted by Egui.
 #[cfg(feature = "render")]
-#[derive(bevy_ecs::system::Resource, Deref, DerefMut, Default)]
-pub struct EguiManagedTextures(pub bevy_utils::HashMap<(Entity, u64), EguiManagedTexture>);
+#[derive(bevy_ecs::resource::Resource, Deref, DerefMut, Default)]
+pub struct EguiManagedTextures(pub bevy_platform_support::collections::hash_map::HashMap<(Entity, u64), EguiManagedTexture>);
 
 /// Represents a texture allocated and painted by Egui.
 #[cfg(feature = "render")]

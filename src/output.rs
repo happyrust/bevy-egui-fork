@@ -1,6 +1,6 @@
 use crate::{helpers, EguiContext, EguiContextSettings, EguiFullOutput, EguiRenderOutput};
 #[cfg(windows)]
-use bevy_ecs::system::Local;
+use bevy_ecs::resource::Local;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
@@ -21,9 +21,9 @@ pub fn process_output_system(
         &EguiContextSettings,
     )>,
     #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
-    mut egui_clipboard: bevy_ecs::system::ResMut<crate::EguiClipboard>,
+    mut egui_clipboard: bevy_ecs::prelude::ResMut<crate::EguiClipboard>,
     mut event: EventWriter<RequestRedraw>,
-    #[cfg(windows)] mut last_cursor_icon: Local<bevy_utils::HashMap<Entity, egui::CursorIcon>>,
+    #[cfg(windows)] mut last_cursor_icon: Local<bevy_platform_support::collections::hash_map::HashMap<Entity, egui::CursorIcon>>,
     event_loop_proxy: Option<NonSend<EventLoopProxy<WakeUp>>>,
 ) {
     let mut should_request_redraw = false;

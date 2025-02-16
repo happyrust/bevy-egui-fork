@@ -26,7 +26,7 @@ use bevy_render::{
     view::ExtractedWindows,
     Extract,
 };
-use bevy_utils::HashMap;
+use bevy_platform_support::collections::hash_map::HashMap;
 use bevy_window::Window;
 use bytemuck::cast_slice;
 use wgpu_types::{BufferAddress, BufferUsages};

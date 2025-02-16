@@ -64,28 +64,29 @@ name = "render_egui_to_image"
 required-features = ["render", "bevy/bevy_gizmos"]
 
 [dependencies]
-bevy_app = "0.15.0"
-bevy_derive = "0.15.0"
-bevy_ecs = "0.15.0"
-bevy_input = "0.15.0"
-bevy_log = "0.15.0"
-bevy_math = "0.15.0"
-bevy_reflect = "0.15.0"
-bevy_time = "0.15.0"
-bevy_utils = "0.15.0"
-bevy_winit = { version = "0.15.0", features = ["custom_cursor"] }
-bevy_window = "0.15.0"
+bevy_app = { path = "../bevy/crates/bevy_app" } 
+bevy_derive = { path = "../bevy/crates/bevy_derive" }
+bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
+bevy_input = { path = "../bevy/crates/bevy_input" }
+bevy_log = { path = "../bevy/crates/bevy_log" }
+bevy_math = { path = "../bevy/crates/bevy_math" }
+bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
+bevy_time = { path = "../bevy/crates/bevy_time" }
+bevy_utils = { path = "../bevy/crates/bevy_utils" }
+bevy_winit = {  path = "../bevy/crates/bevy_winit"  , features = ["custom_cursor"] }
+bevy_window = { path = "../bevy/crates/bevy_window" }
+bevy_platform_support = { path = "../bevy/crates/bevy_platform_support" }
 
-bytemuck = "1"
+bytemuck = { version = "1", optional = true}
 egui = { path = "../egui/crates/egui", default-features = false, features = ["bytemuck"] }
 webbrowser = { version = "0.8.2", optional = true }
-wgpu-types = { path = "../wgpu/wgpu-types" }
+wgpu-types = { path = "../wgpu/wgpu-types", optional = true }
 
 # `render` feature
-bevy_asset = { version = "0.15.0", optional = true }
-bevy_image = { version = "0.15.0", optional = true }
-bevy_picking = { version = "0.15.0", optional = true }
-bevy_render = { version = "0.15.0", optional = true }
+bevy_asset = {  path = "../bevy/crates/bevy_asset"  , optional = true }
+bevy_image = {  path = "../bevy/crates/bevy_image"  , optional = true }
+bevy_picking = {  path = "../bevy/crates/bevy_picking"  , optional = true }
+bevy_render = {  path = "../bevy/crates/bevy_render"  , optional = true }
 encase = { version = "0.10", optional = true }
 
 # `manage_clipboard` feature
@@ -102,6 +103,7 @@ bevy = { path = "../bevy", default-features = false, features = [
     "bevy_pbr",
     "bevy_window",
     "bevy_winit",
+    "bevy_picking",
     "android-game-activity",
     "png",
     "tonemapping_luts",
@@ -131,5 +133,3 @@ wasm-bindgen = "0.2.84"
 wasm-bindgen-futures = "0.4.36"
 crossbeam-channel = "0.5.8"
 
-[workspace]
-members = ["run-wasm"]
