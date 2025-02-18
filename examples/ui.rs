@@ -104,6 +104,7 @@ fn ui_example_system(
     // If you need to access the ids from multiple systems, you can also initialize the `Images`
     // resource while building the app and use `Res<Images>` instead.
     images: Local<Images>,
+    image_assets: ResMut<Assets<Image>>,
     mut contexts: EguiContexts,
 ) {
     let egui_texture_handle = ui_state
@@ -118,6 +119,7 @@ fn ui_example_system(
         .clone();
 
     let mut load = false;
+    let mut copy = false;
     let mut remove = false;
     let mut invert = false;
 
@@ -151,6 +153,7 @@ fn ui_example_system(
             ui.allocate_space(egui::Vec2::new(1.0, 100.0));
             ui.horizontal(|ui| {
                 load = ui.button("Load").clicked();
+                copy = ui.button("Copy").clicked();
                 invert = ui.button("Invert").clicked();
                 remove = ui.button("Remove").clicked();
             });
@@ -217,13 +220,26 @@ fn ui_example_system(
     if invert {
         ui_state.inverted = !ui_state.inverted;
     }
+    let bevy_icon_handle = if ui_state.inverted {
+        images.bevy_icon_inverted.clone_weak()
+    } else {
+        images.bevy_icon.clone_weak()
+    };
     if load || invert {
         // If an image is already added to the context, it'll return an existing texture id.
-        if ui_state.inverted {
-            *rendered_texture_id = contexts.add_image(images.bevy_icon_inverted.clone_weak());
-        } else {
-            *rendered_texture_id = contexts.add_image(images.bevy_icon.clone_weak());
-        };
+        *rendered_texture_id = contexts.add_image(bevy_icon_handle.clone_weak());
+    }
+    if copy {
+        let image = image_assets
+            .get(&bevy_icon_handle)
+            .expect("images should be created");
+
+        contexts
+            .ctx_mut()
+            .copy_image(egui::ColorImage::from_rgba_unmultiplied(
+                image.size().to_array().map(|a| a as usize),
+                &image.data,
+            ));
     }
     if remove {
         contexts.remove_image(&images.bevy_icon);

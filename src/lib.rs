@@ -58,39 +58,39 @@
 //! cargo run --example ui
 //! ```
 //!
-//! ### ui ([live page](https://vladbat00.github.io/bevy_egui/ui), source: [examples/ui.rs](https://github.com/vladbat00/bevy_egui/blob/v0.32.0/examples/ui.rs))
+//! ### ui ([live page](https://vladbat00.github.io/bevy_egui/ui), source: [examples/ui.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/ui.rs))
 //!
 //! Showcasing some more advanced UI, rendering images, hidpi scaling.
 //!
-//! ### color_test ([live page](https://vladbat00.github.io/bevy_egui/color_test), source: [examples/color_test.rs](https://github.com/vladbat00/bevy_egui/blob/v0.32.0/examples/color_test.rs))
+//! ### color_test ([live page](https://vladbat00.github.io/bevy_egui/color_test), source: [examples/color_test.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/color_test.rs))
 //!
 //! Rendering test from [egui.rs](https://egui.rs). We don't fully pass it, help is wanted ([#291](https://github.com/vladbat00/bevy_egui/issues/291)).
 //!
-//! ### side_panel ([live page](https://vladbat00.github.io/bevy_egui/side_panel), source: [examples/side_panel.rs](https://github.com/vladbat00/bevy_egui/blob/v0.32.0/examples/side_panel.rs))
+//! ### side_panel ([live page](https://vladbat00.github.io/bevy_egui/side_panel), source: [examples/side_panel.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/side_panel.rs))
 //!
 //! Showing how to display an Egui side panel and transform camera to make rendering centered relative to the remaining screen area.
 //!
-//! ### render_egui_to_image ([live page](https://vladbat00.github.io/bevy_egui/render_egui_to_image), source: [examples/render_egui_to_image.rs](https://github.com/vladbat00/bevy_egui/blob/v0.32.0/examples/render_egui_to_image.rs))
+//! ### render_egui_to_image ([live page](https://vladbat00.github.io/bevy_egui/render_egui_to_image), source: [examples/render_egui_to_image.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/render_egui_to_image.rs))
 //!
 //! Rendering UI to an image (texture) and then using it as a mesh material texture.
 //!
-//! ### render_to_image_widget ([live page](https://vladbat00.github.io/bevy_egui/render_to_image_widget), source: [examples/render_to_image_widget.rs](https://github.com/vladbat00/bevy_egui/blob/v0.32.0/examples/render_to_image_widget.rs))
+//! ### render_to_image_widget ([live page](https://vladbat00.github.io/bevy_egui/render_to_image_widget), source: [examples/render_to_image_widget.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/render_to_image_widget.rs))
 //!
 //! Rendering to a texture with Bevy and showing it as an Egui image widget.
 //!
-//! ### two_windows (source: [examples/two_windows.rs](https://github.com/vladbat00/bevy_egui/blob/v0.32.0/examples/two_windows.rs))
+//! ### two_windows (source: [examples/two_windows.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/two_windows.rs))
 //!
 //! Setting up two windows with an Egui context for each.
 //!
-//! ### paint_callback ([live page](https://vladbat00.github.io/bevy_egui/paint_callback), source: [examples/paint_callback.rs](https://github.com/vladbat00/bevy_egui/blob/v0.32.0/examples/paint_callback.rs))
+//! ### paint_callback ([live page](https://vladbat00.github.io/bevy_egui/paint_callback), source: [examples/paint_callback.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/paint_callback.rs))
 //!
 //! Using Egui paint callbacks.
 //!
-//! ### simple ([live page](https://vladbat00.github.io/bevy_egui/simple), source: [examples/simple.rs](https://github.com/vladbat00/bevy_egui/blob/v0.32.0/examples/simple.rs))
+//! ### simple ([live page](https://vladbat00.github.io/bevy_egui/simple), source: [examples/simple.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/simple.rs))
 //!
 //! The minimal usage example from this readme.
 //!
-//! ### simple_multipass ([live page](https://vladbat00.github.io/bevy_egui/simple_multipass), source: [examples/simple_multipass.rs](https://github.com/vladbat00/bevy_egui/blob/v0.32.0/examples/simple_multipass.rs))
+//! ### simple_multipass ([live page](https://vladbat00.github.io/bevy_egui/simple_multipass), source: [examples/simple_multipass.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/simple_multipass.rs))
 //!
 //! The same minimal example demonstrating running Egui passes manually.
 //!
@@ -1081,32 +1081,29 @@ pub fn setup_new_windows_system(
     }
 }
 
-#[cfg(all(feature = "manage_clipboard", not(target_os = "android"),))]
+#[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
 impl EguiClipboard {
-    /// Sets clipboard contents.
-    pub fn set_contents(&mut self, contents: &str) {
-        self.set_contents_impl(contents);
+    /// Places the text onto the clipboard.
+    pub fn set_text(&mut self, contents: &str) {
+        self.set_text_impl(contents);
     }
 
     /// Sets the internal buffer of clipboard contents.
     /// This buffer is used to remember the contents of the last "Paste" event.
     #[cfg(target_arch = "wasm32")]
-    pub fn set_contents_internal(&mut self, contents: &str) {
-        self.clipboard.set_contents_internal(contents);
+    pub fn set_text_internal(&mut self, text: &str) {
+        self.clipboard.set_text_internal(text);
     }
 
-    /// Gets clipboard contents. Returns [`None`] if clipboard provider is unavailable or returns an error.
+    /// Gets clipboard text content. Returns [`None`] if clipboard provider is unavailable or returns an error.
     #[must_use]
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn get_contents(&mut self) -> Option<String> {
-        self.get_contents_impl()
+    pub fn get_text(&mut self) -> Option<String> {
+        self.get_text_impl()
     }
 
-    /// Gets clipboard contents. Returns [`None`] if clipboard provider is unavailable or returns an error.
-    #[must_use]
-    #[cfg(target_arch = "wasm32")]
-    pub fn get_contents(&mut self) -> Option<String> {
-        self.get_contents_impl()
+    /// Places an image to the clipboard.
+    pub fn set_image(&mut self, image: &egui::ColorImage) {
+        self.set_image_impl(image);
     }
 
     /// Receives a clipboard event sent by the `copy`/`cut`/`paste` listeners.
@@ -1116,7 +1113,7 @@ impl EguiClipboard {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn set_contents_impl(&mut self, contents: &str) {
+    fn set_text_impl(&mut self, contents: &str) {
         if let Some(mut clipboard) = self.get() {
             if let Err(err) = clipboard.set_text(contents.to_owned()) {
                 log::error!("Failed to set clipboard contents: {:?}", err);
@@ -1125,12 +1122,12 @@ impl EguiClipboard {
     }
 
     #[cfg(target_arch = "wasm32")]
-    fn set_contents_impl(&mut self, contents: &str) {
-        self.clipboard.set_contents(contents);
+    fn set_text_impl(&mut self, contents: &str) {
+        self.clipboard.set_text(contents);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    fn get_contents_impl(&mut self) -> Option<String> {
+    fn get_text_impl(&mut self) -> Option<String> {
         if let Some(mut clipboard) = self.get() {
             match clipboard.get_text() {
                 Ok(contents) => return Some(contents),
@@ -1144,8 +1141,26 @@ impl EguiClipboard {
 
     #[cfg(target_arch = "wasm32")]
     #[allow(clippy::unnecessary_wraps)]
-    fn get_contents_impl(&mut self) -> Option<String> {
-        self.clipboard.get_contents()
+    fn get_text_impl(&mut self) -> Option<String> {
+        self.clipboard.get_text()
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn set_image_impl(&mut self, image: &egui::ColorImage) {
+        if let Some(mut clipboard) = self.get() {
+            if let Err(err) = clipboard.set_image(arboard::ImageData {
+                width: image.width(),
+                height: image.height(),
+                bytes: std::borrow::Cow::Borrowed(bytemuck::cast_slice(&image.pixels)),
+            }) {
+                log::error!("Failed to set clipboard contents: {:?}", err);
+            }
+        }
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn set_image_impl(&mut self, image: &egui::ColorImage) {
+        self.clipboard.set_image(image);
     }
 
     #[cfg(not(target_arch = "wasm32"))]
