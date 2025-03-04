@@ -16,7 +16,7 @@ all-features = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-default = ["manage_clipboard", "open_url", "default_fonts", "render"]
+default = ["manage_clipboard", "open_url", "default_fonts", "render", "picking"]
 immutable_ctx = []
 manage_clipboard = ["arboard", "thread_local", "bytemuck"]
 open_url = ["webbrowser"]
@@ -24,13 +24,13 @@ default_fonts = ["egui/default_fonts"]
 render = [
     "bevy_asset",
     "bevy_image",
-    "bevy_picking",
     "bevy_render",
     "encase",
     "bytemuck",
     "egui/bytemuck",
     "wgpu-types",
 ]
+picking = ["bevy_picking"]
 serde = ["egui/serde"]
 # The enabled logs will print with the info log level, to make it less cumbersome to debug in browsers.
 log_input_events = []
@@ -45,7 +45,10 @@ required-features = ["render"]
 name = "render_to_image_widget"
 required-features = ["render"]
 [[example]]
-name = "side_panel"
+name = "side_panel_2d"
+required-features = ["render"]
+[[example]]
+name = "side_panel_3d"
 required-features = ["render"]
 [[example]]
 name = "simple"
@@ -61,10 +64,10 @@ name = "ui"
 required-features = ["render"]
 [[example]]
 name = "render_egui_to_image"
-required-features = ["render", "bevy/bevy_gizmos"]
+required-features = ["picking", "render", "bevy/bevy_gizmos"]
 
 [dependencies]
-bevy_app = { path = "../bevy/crates/bevy_app" } 
+bevy_app = { path = "../bevy/crates/bevy_app" }
 bevy_derive = { path = "../bevy/crates/bevy_derive" }
 bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
 bevy_input = { path = "../bevy/crates/bevy_input" }
@@ -89,6 +92,9 @@ bevy_picking = {  path = "../bevy/crates/bevy_picking"  , optional = true }
 bevy_render = {  path = "../bevy/crates/bevy_render"  , optional = true }
 encase = { version = "0.10", optional = true }
 
+# `picking` feature
+bevy_picking = { version = "0.15.0", optional = true }
+
 # `manage_clipboard` feature
 [target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dependencies]
 arboard = { version = "3.2.0", optional = true }
@@ -99,8 +105,9 @@ version-sync = "0.9.4"
 bevy = { path = "../bevy", default-features = false, features = [
     "bevy_asset",
     "bevy_core_pipeline",
-    "bevy_sprite",
     "bevy_pbr",
+    "bevy_mesh_picking_backend",
+    "bevy_sprite",
     "bevy_window",
     "bevy_winit",
     "bevy_picking",

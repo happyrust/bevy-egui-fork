@@ -1,21 +1,18 @@
-use bevy::{
-    input::mouse::MouseMotion, prelude::*, render::render_resource::LoadOp, window::PrimaryWindow,
-};
+use bevy::{prelude::*, render::render_resource::LoadOp, window::PrimaryWindow};
 use bevy_egui::{EguiContexts, EguiPlugin, EguiRenderToImage};
 use wgpu_types::{Extent3d, TextureUsages};
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins((DefaultPlugins, MeshPickingPlugin));
     app.add_plugins(EguiPlugin);
-    app.add_systems(Startup, setup_worldspace);
+    app.add_systems(Startup, setup_worldspace_system);
     app.add_systems(
         Update,
         (
-            update_screenspace,
-            update_worldspace,
-            handle_dragging,
-            draw_gizmos.after(handle_dragging),
+            update_screenspace_system,
+            update_worldspace_system,
+            draw_gizmos_system,
         ),
     );
     app.run();
@@ -29,7 +26,7 @@ impl Default for Name {
     }
 }
 
-fn update_screenspace(mut name: Local<Name>, mut contexts: EguiContexts) {
+fn update_screenspace_system(mut name: Local<Name>, mut contexts: EguiContexts) {
     egui::Window::new("Screenspace UI").show(contexts.ctx_mut(), |ui| {
         ui.horizontal(|ui| {
             ui.label("Your name:");
@@ -42,7 +39,7 @@ fn update_screenspace(mut name: Local<Name>, mut contexts: EguiContexts) {
     });
 }
 
-fn update_worldspace(
+fn update_worldspace_system(
     mut name: Local<Name>,
     mut ctx: Single<&mut bevy_egui::EguiContext, With<EguiRenderToImage>>,
 ) {
@@ -58,7 +55,13 @@ fn update_worldspace(
     });
 }
 
-fn setup_worldspace(
+#[derive(Resource)]
+struct MaterialHandles {
+    normal: Handle<StandardMaterial>,
+    hovered: Handle<StandardMaterial>,
+}
+
+fn setup_worldspace_system(
     mut images: ResMut<Assets<Image>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -85,6 +88,17 @@ fn setup_worldspace(
         image
     });
 
+    let material_handles = MaterialHandles {
+        normal: materials.add(StandardMaterial {
+            base_color: Color::linear_rgb(0.4, 0.4, 0.4),
+            ..default()
+        }),
+        hovered: materials.add(StandardMaterial {
+            base_color: Color::linear_rgb(0.6, 0.6, 0.6),
+            ..default()
+        }),
+    };
+
     commands
         .spawn((
             Mesh3d(meshes.add(Plane3d::new(Vec3::Z, Vec2::splat(0.5)).mesh())),
@@ -100,15 +114,24 @@ fn setup_worldspace(
                 handle: image,
                 load_op: LoadOp::Clear(Color::srgb_u8(43, 44, 47).to_linear().into()),
             },
+            // We want the "tablet" mesh behind to react to pointer inputs.
+            PickingBehavior {
+                should_block_lower: false,
+                is_hoverable: true,
+            },
         ))
-        .with_child((
-            Mesh3d(meshes.add(Cuboid::new(1.1, 1.1, 0.1))),
-            MeshMaterial3d(materials.add(StandardMaterial {
-                base_color: Color::linear_rgb(0.4, 0.4, 0.4),
-                ..default()
-            })),
-            Transform::from_xyz(0.0, 0.0, -0.051),
-        ));
+        .with_children(|commands| {
+            // The "tablet" mesh, on top of which Egui is rendered.
+            commands
+                .spawn((
+                    Mesh3d(meshes.add(Cuboid::new(1.1, 1.1, 0.1))),
+                    MeshMaterial3d(material_handles.normal.clone()),
+                    Transform::from_xyz(0.0, 0.0, -0.051),
+                ))
+                .observe(handle_over_system)
+                .observe(handle_out_system)
+                .observe(handle_drag_system);
+        });
 
     commands.spawn((
         PointLight::default(),
@@ -117,53 +140,61 @@ fn setup_worldspace(
 
     let camera_transform = Transform::from_xyz(1.0, 1.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y);
     commands.spawn((Camera3d::default(), camera_transform));
+
+    commands.insert_resource(material_handles);
 }
 
-fn draw_gizmos(mut gizmos: Gizmos, egui_mesh_query: Query<&Transform, With<EguiRenderToImage>>) {
+fn draw_gizmos_system(
+    mut gizmos: Gizmos,
+    egui_mesh_query: Query<&Transform, With<EguiRenderToImage>>,
+) {
     let egui_mesh_transform = egui_mesh_query.single();
     gizmos.axes(*egui_mesh_transform, 0.1);
 }
 
-fn handle_dragging(
-    mouse_button_input: Res<ButtonInput<MouseButton>>,
-    mut mouse_motion_events: EventReader<MouseMotion>,
-    window_query: Query<&Window, With<PrimaryWindow>>,
-    mut egui_mesh_query: Query<&mut Transform, With<EguiRenderToImage>>,
-    // Need to specify `Without<EguiRenderToImage>` for `camera_query` and `egui_mesh_query` to be disjoint.
-    camera_query: Query<&Transform, (With<Camera>, Without<EguiRenderToImage>)>,
-    mut local_state: Local<(Quat, Quat)>,
+fn handle_over_system(
+    over: Trigger<Pointer<Over>>,
+    mut mesh_material_query: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    material_handles: Res<MaterialHandles>,
 ) {
-    if !mouse_button_input.pressed(MouseButton::Left) {
-        mouse_motion_events.clear();
+    let Ok(mut material) = mesh_material_query.get_mut(over.target) else {
         return;
-    }
+    };
+    *material = MeshMaterial3d(material_handles.hovered.clone());
+}
 
-    let window = window_query.single();
-    let camera_transform = camera_query.single();
+fn handle_out_system(
+    out: Trigger<Pointer<Out>>,
+    mut mesh_material_query: Query<&mut MeshMaterial3d<StandardMaterial>>,
+    material_handles: Res<MaterialHandles>,
+) {
+    let Ok(mut material) = mesh_material_query.get_mut(out.target) else {
+        return;
+    };
+    *material = MeshMaterial3d(material_handles.normal.clone());
+}
 
-    let mut egui_mesh_transform = egui_mesh_query.single_mut();
+fn handle_drag_system(
+    drag: Trigger<Pointer<Drag>>,
+    window: Single<&Window, With<PrimaryWindow>>,
+    mut egui_mesh_transform: Single<&mut Transform, With<EguiRenderToImage>>,
+    // Need to specify `Without<EguiRenderToImage>` for `camera_query` and `egui_mesh_query` to be disjoint.
+    camera_transform: Single<&Transform, (With<Camera>, Without<EguiRenderToImage>)>,
+) {
+    let Some(delta_normalized) = Vec3::new(drag.delta.y, drag.delta.x, 0.0).try_normalize() else {
+        return;
+    };
 
-    let (initial_rotation, delta) = &mut *local_state;
+    let angle = Vec2::new(
+        drag.delta.x / window.physical_width() as f32,
+        drag.delta.y / window.physical_height() as f32,
+    )
+    .length()
+        * std::f32::consts::PI
+        * 2.0;
+    let frame_delta = Quat::from_axis_angle(delta_normalized, angle);
 
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        *initial_rotation = egui_mesh_transform.rotation;
-        *delta = Quat::IDENTITY;
-    }
-
-    for ev in mouse_motion_events.read() {
-        let angle = Vec2::new(
-            ev.delta.x / window.physical_width() as f32,
-            ev.delta.y / window.physical_height() as f32,
-        )
-        .length()
-            * std::f32::consts::PI
-            * 2.0;
-        let frame_delta =
-            Quat::from_axis_angle(Vec3::new(ev.delta.y, ev.delta.x, 0.0).normalize(), angle);
-        *delta = frame_delta * *delta;
-
-        let camera_rotation = camera_transform.rotation;
-        egui_mesh_transform.rotation =
-            camera_rotation * *delta * camera_rotation.conjugate() * *initial_rotation;
-    }
+    let camera_rotation = camera_transform.rotation;
+    egui_mesh_transform.rotation =
+        camera_rotation * frame_delta * camera_rotation.conjugate() * egui_mesh_transform.rotation;
 }

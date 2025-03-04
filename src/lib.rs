@@ -66,9 +66,13 @@
 //!
 //! Rendering test from [egui.rs](https://egui.rs). We don't fully pass it, help is wanted ([#291](https://github.com/vladbat00/bevy_egui/issues/291)).
 //!
-//! ### side_panel ([live page](https://vladbat00.github.io/bevy_egui/side_panel), source: [examples/side_panel.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/side_panel.rs))
+//! ### side_panel_2d ([live page](https://vladbat00.github.io/bevy_egui/side_panel_2d), source: [examples/side_panel_2d.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/side_panel_2d.rs))
 //!
-//! Showing how to display an Egui side panel and transform camera to make rendering centered relative to the remaining screen area.
+//! Showing how to display an Egui side panel and transform a camera with a perspective projection to make rendering centered relative to the remaining screen area.
+//!
+//! ### side_panel_3d ([live page](https://vladbat00.github.io/bevy_egui/side_panel_3d), source: [examples/side_panel_3d.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/side_panel_3d.rs))
+//!
+//! Showing how to display an Egui side panel and transform a camera with a orthographic projection to make rendering centered relative to the remaining screen area.
 //!
 //! ### render_egui_to_image ([live page](https://vladbat00.github.io/bevy_egui/render_egui_to_image), source: [examples/render_egui_to_image.rs](https://github.com/vladbat00/bevy_egui/blob/v0.33.0/examples/render_egui_to_image.rs))
 //!
@@ -150,15 +154,16 @@ use bevy_ecs::{
 use bevy_image::{Image, ImageSampler};
 use bevy_input::InputSystem;
 use bevy_log as log;
-#[cfg(feature = "render")]
+#[cfg(feature = "picking")]
 use bevy_picking::{
     backend::{HitData, PointerHits},
     pointer::{PointerId, PointerLocation},
 };
 use bevy_reflect::Reflect;
+#[cfg(feature = "picking")]
+use bevy_render::camera::NormalizedRenderTarget;
 #[cfg(feature = "render")]
 use bevy_render::{
-    camera::NormalizedRenderTarget,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_resource::{LoadOp, SpecializedRenderPipelines},
@@ -227,7 +232,7 @@ pub struct EguiContextSettings {
     #[cfg(feature = "open_url")]
     pub default_open_url_target: Option<String>,
     /// Controls if Egui should capture pointer input when using [`bevy_picking`] (i.e. suppress `bevy_picking` events when a pointer is over an Egui window).
-    #[cfg(feature = "render")]
+    #[cfg(feature = "picking")]
     pub capture_pointer_input: bool,
     /// Controls running of the input systems.
     pub input_system_settings: EguiInputSystemSettings,
@@ -251,7 +256,7 @@ impl Default for EguiContextSettings {
             scale_factor: 1.0,
             #[cfg(feature = "open_url")]
             default_open_url_target: None,
-            #[cfg(feature = "render")]
+            #[cfg(feature = "picking")]
             capture_pointer_input: true,
             input_system_settings: EguiInputSystemSettings::default(),
         }
@@ -980,7 +985,7 @@ impl Plugin for EguiPlugin {
             PostUpdate,
             process_output_system.in_set(EguiPostUpdateSet::ProcessOutput),
         );
-        #[cfg(feature = "render")]
+        #[cfg(feature = "picking")]
         app.add_systems(PostUpdate, capture_pointer_input_system);
 
         #[cfg(feature = "render")]
@@ -1024,9 +1029,8 @@ impl Plugin for EguiPlugin {
                     // `RenderSet::ExtractCommands` where render nodes get updated.
                     ExtractSchedule,
                     (
-                        render_systems::setup_new_window_nodes_system,
+                        render_systems::setup_new_egui_nodes_system,
                         render_systems::teardown_window_nodes_system,
-                        render_systems::setup_new_render_to_image_nodes_system,
                         render_systems::teardown_render_to_image_nodes_system,
                     ),
                 )
@@ -1180,11 +1184,11 @@ impl EguiClipboard {
 }
 
 /// The ordering value used for [`bevy_picking`].
-#[cfg(feature = "render")]
+#[cfg(feature = "picking")]
 pub const PICKING_ORDER: f32 = 1_000_000.0;
 
 /// Captures pointers on egui windows for [`bevy_picking`].
-#[cfg(feature = "render")]
+#[cfg(feature = "picking")]
 pub fn capture_pointer_input_system(
     pointers: Query<(&PointerId, &PointerLocation)>,
     mut egui_context: Query<(Entity, &mut EguiContext, &EguiContextSettings), With<Window>>,
