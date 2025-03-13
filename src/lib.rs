@@ -985,8 +985,8 @@ impl Plugin for EguiPlugin {
             PostUpdate,
             process_output_system.in_set(EguiPostUpdateSet::ProcessOutput),
         );
-        #[cfg(feature = "picking")]
-        app.add_systems(PostUpdate, capture_pointer_input_system);
+        // #[cfg(feature = "picking")]
+        // app.add_systems(PostUpdate, capture_pointer_input_system);
 
         #[cfg(feature = "render")]
         app.add_systems(
@@ -1187,33 +1187,33 @@ impl EguiClipboard {
 #[cfg(feature = "picking")]
 pub const PICKING_ORDER: f32 = 1_000_000.0;
 
-/// Captures pointers on egui windows for [`bevy_picking`].
-#[cfg(feature = "picking")]
-pub fn capture_pointer_input_system(
-    pointers: Query<(&PointerId, &PointerLocation)>,
-    mut egui_context: Query<(Entity, &mut EguiContext, &EguiContextSettings), With<Window>>,
-    mut output: EventWriter<PointerHits>,
-) {
-    use helpers::QueryHelper;
-
-    for (pointer, location) in pointers
-        .iter()
-        .filter_map(|(i, p)| p.location.as_ref().map(|l| (i, l)))
-    {
-        if let NormalizedRenderTarget::Window(id) = location.target {
-            if let Some((entity, mut ctx, settings)) = egui_context.get_some_mut(id.entity()) {
-                if settings.capture_pointer_input && ctx.get_mut().wants_pointer_input() {
-                    let entry = (entity, HitData::new(entity, 0.0, None, None));
-                    output.send(PointerHits::new(
-                        *pointer,
-                        Vec::from([entry]),
-                        PICKING_ORDER,
-                    ));
-                }
-            }
-        }
-    }
-}
+// /// Captures pointers on egui windows for [`bevy_picking`].
+// #[cfg(feature = "picking")]
+// pub fn capture_pointer_input_system(
+//     pointers: Query<(&PointerId, &PointerLocation)>,
+//     mut egui_context: Query<(Entity, &mut EguiContext, &EguiContextSettings), With<Window>>,
+//     mut output: EventWriter<PointerHits>,
+// ) {
+//     use helpers::QueryHelper;
+//
+//     for (pointer, location) in pointers
+//         .iter()
+//         .filter_map(|(i, p)| p.location.as_ref().map(|l| (i, l)))
+//     {
+//         if let NormalizedRenderTarget::Window(id) = location.target {
+//             if let Some((entity, mut ctx, settings)) = egui_context.get_some_mut(id.entity()) {
+//                 if settings.capture_pointer_input && ctx.get_mut().wants_pointer_input() {
+//                     let entry = (entity, HitData::new(entity, 0.0, None, None));
+//                     output.send(PointerHits::new(
+//                         *pointer,
+//                         Vec::from([entry]),
+//                         PICKING_ORDER,
+//                     ));
+//                 }
+//             }
+//         }
+//     }
+// }
 
 /// Updates textures painted by Egui.
 #[cfg(feature = "render")]
