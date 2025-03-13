@@ -270,6 +270,9 @@ use egui::{
     TextureOptions, Ui, Vec2,
 };
 use std::collections::HashMap;
+use bevy_math::prelude::Rectangle;
+use bevy_math::UVec2;
+use bevy_transform::prelude::Transform;
 use wgpu_types::{Extent3d, TextureUsages};
 
 const GRADIENT_SIZE: Vec2 = vec2(256.0, 18.0);

@@ -9,6 +9,8 @@ use bevy::{
     },
 };
 use bevy_egui::{egui::Widget, EguiContexts, EguiPlugin, EguiUserTextures};
+use bevy_math::{primitives::Cuboid, Quat, Vec3};
+use bevy_transform::components::Transform;
 
 fn main() {
     App::new()

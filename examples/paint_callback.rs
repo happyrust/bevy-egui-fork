@@ -16,6 +16,8 @@ use bevy_egui::{
     egui_node::{EguiBevyPaintCallback, EguiBevyPaintCallbackImpl, EguiPipelineKey},
     EguiContexts, EguiPlugin, EguiRenderToImage,
 };
+use bevy_math::{primitives::Cuboid, Vec3};
+use bevy_transform::components::Transform;
 use std::path::Path;
 use wgpu_types::{Extent3d, TextureUsages};
 

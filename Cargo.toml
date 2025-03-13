@@ -67,32 +67,33 @@ name = "render_egui_to_image"
 required-features = ["picking", "render", "bevy/bevy_gizmos"]
 
 [dependencies]
-bevy_app = { path = "../bevy/crates/bevy_app" }
-bevy_derive = { path = "../bevy/crates/bevy_derive" }
-bevy_ecs = { path = "../bevy/crates/bevy_ecs" }
-bevy_input = { path = "../bevy/crates/bevy_input" }
-bevy_log = { path = "../bevy/crates/bevy_log" }
-bevy_math = { path = "../bevy/crates/bevy_math" }
-bevy_reflect = { path = "../bevy/crates/bevy_reflect" }
-bevy_time = { path = "../bevy/crates/bevy_time" }
-bevy_utils = { path = "../bevy/crates/bevy_utils" }
-bevy_winit = {  path = "../bevy/crates/bevy_winit"  , features = ["custom_cursor"] }
-bevy_window = { path = "../bevy/crates/bevy_window" }
-bevy_platform_support = { path = "../bevy/crates/bevy_platform_support" }
+bevy_app = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_app" }
+bevy_derive = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_derive" }
+bevy_ecs = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_ecs" }
+bevy_input = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_input" }
+bevy_log = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_log" }
+bevy_math = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_math" }
+bevy_transform = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_transform" }
+bevy_reflect = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_reflect" }
+bevy_time = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_time" }
+bevy_utils = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_utils" }
+bevy_winit = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_winit", features = ["custom_cursor"] }
+bevy_window = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_window" }
+bevy_platform_support = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_platform_support" }
 
 bytemuck = { version = "1", optional = true}
-egui = { path = "../egui/crates/egui", default-features = false, features = ["bytemuck"] }
+egui = { git = "https://gitee.com/happydpc/egui.git", default-features = false, features = ["bytemuck"] }
 webbrowser = { version = "0.8.2", optional = true }
-wgpu-types = { path = "../wgpu/wgpu-types", optional = true }
+wgpu-types = { git = "https://gitee.com/happydpc/wgpu.git" , optional = true }
 
 # `render` feature
-bevy_asset = {  path = "../bevy/crates/bevy_asset"  , optional = true }
-bevy_image = {  path = "../bevy/crates/bevy_image"  , optional = true }
-bevy_render = {  path = "../bevy/crates/bevy_render"  , optional = true }
+bevy_asset = {  git = "https://gitee.com/happydpc/bevy.git", package = "bevy_asset", optional = true }
+bevy_image = {  git = "https://gitee.com/happydpc/bevy.git", package = "bevy_image", optional = true }
+bevy_render = {  git = "https://gitee.com/happydpc/bevy.git", package = "bevy_render", optional = true }
 encase = { version = "0.10", optional = true }
 
 # `picking` feature
-bevy_picking = { path = "../bevy/crates/bevy_picking", optional = true }
+bevy_picking = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_picking", optional = true }
 
 # `manage_clipboard` feature
 [target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dependencies]
@@ -101,7 +102,9 @@ thread_local = { version = "1.1.0", optional = true }
 
 [dev-dependencies]
 version-sync = "0.9.4"
-bevy = { path = "../bevy", default-features = false, features = [
+bevy = { git = "https://gitee.com/happydpc/bevy.git" , default-features = false, features = [
+    "std",
+    "async_executor",
     "bevy_asset",
     "bevy_core_pipeline",
     "bevy_pbr",
@@ -116,10 +119,10 @@ bevy = { path = "../bevy", default-features = false, features = [
     "webgl2",
     "x11",
 ] }
-egui = { path = "../egui/crates/egui", default-features = false, features = ["bytemuck"] }
+egui = { git = "https://gitee.com/happydpc/egui.git" , default-features = false, features = ["bytemuck"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = { path="../winit" }
+winit = { git = "https://gitee.com/happydpc/winit.git" }
 web-sys = { version = "0.3.74", features = [
     "Clipboard",
     "ClipboardEvent",
