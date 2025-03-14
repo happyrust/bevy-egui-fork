@@ -1,7 +1,7 @@
 use bevy::{
-    log::{Level, LogPlugin},
     prelude::*,
 };
+use bevy_log::{Level, LogPlugin};
 use bevy_window::PrimaryWindow;
 use bevy_egui::{EguiContextSettings, EguiContexts, EguiPlugin};
 
@@ -30,11 +30,11 @@ fn main() {
         .init_resource::<UiState>()
         .add_plugins(
             DefaultPlugins
-                .set(LogPlugin {
-                    filter: "warn,ui=info".to_string(),
-                    level: Level::INFO,
-                    ..Default::default()
-                })
+                // .set(LogPlugin {
+                //     filter: "warn,ui=info".to_string(),
+                //     level: Level::INFO,
+                //     ..Default::default()
+                // })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         // You may want this set to `true` if you need virtual keyboard work in mobile browsers.
@@ -45,6 +45,11 @@ fn main() {
                 }),
         )
         .add_plugins(EguiPlugin)
+        .add_plugins(LogPlugin {
+            filter: "warn,ui=info".to_string(),
+            level: Level::INFO,
+            ..Default::default()
+        })
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, configure_ui_state_system)
         .add_systems(Update, update_ui_scale_factor_system)
