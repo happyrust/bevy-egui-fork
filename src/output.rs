@@ -1,6 +1,4 @@
 use crate::{helpers, EguiContext, EguiContextSettings, EguiFullOutput, EguiRenderOutput};
-#[cfg(windows)]
-use bevy_ecs::resource::Local;
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
@@ -9,6 +7,7 @@ use bevy_ecs::{
 use bevy_window::RequestRedraw;
 use bevy_winit::{cursor::CursorIcon, EventLoopProxy, WakeUp};
 use std::{sync::Arc, time::Duration};
+use bevy_ecs::prelude::Local;
 
 /// Reads Egui output.
 pub fn process_output_system(
