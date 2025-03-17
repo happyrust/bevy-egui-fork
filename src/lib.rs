@@ -985,8 +985,8 @@ impl Plugin for EguiPlugin {
             PostUpdate,
             process_output_system.in_set(EguiPostUpdateSet::ProcessOutput),
         );
-        #[cfg(feature = "picking")]
-        app.add_systems(PostUpdate, capture_pointer_input_system);
+        // #[cfg(feature = "picking")]
+        // app.add_systems(PostUpdate, capture_pointer_input_system);
 
         #[cfg(feature = "render")]
         app.add_systems(
