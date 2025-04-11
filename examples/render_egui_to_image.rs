@@ -1,22 +1,27 @@
-use bevy::{prelude::*, render::render_resource::LoadOp, window::PrimaryWindow};
-use bevy_egui::{EguiContexts, EguiPlugin, EguiRenderToImage};
+use bevy::{
+    ecs::schedule::ScheduleLabel, prelude::*, render::render_resource::LoadOp,
+    window::PrimaryWindow,
+};
+use bevy_egui::{
+    EguiContextPass, EguiContexts, EguiMultipassSchedule, EguiPlugin, EguiRenderToImage,
+};
 use wgpu_types::{Extent3d, TextureUsages};
 
 fn main() {
     let mut app = App::new();
     app.add_plugins((DefaultPlugins, MeshPickingPlugin));
-    app.add_plugins(EguiPlugin);
+    app.add_plugins(EguiPlugin {
+        enable_multipass_for_primary_context: true,
+    });
     app.add_systems(Startup, setup_worldspace_system);
-    app.add_systems(
-        Update,
-        (
-            update_screenspace_system,
-            update_worldspace_system,
-            draw_gizmos_system,
-        ),
-    );
+    app.add_systems(Update, draw_gizmos_system);
+    app.add_systems(EguiContextPass, update_screenspace_system);
+    app.add_systems(WorldspaceContextPass, update_worldspace_system);
     app.run();
 }
+
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct WorldspaceContextPass;
 
 struct Name(String);
 
@@ -80,7 +85,7 @@ fn setup_worldspace_system(
         };
         let mut image = Image {
             // You should use `0` so that the pixels are transparent.
-            data: vec![0; (size.width * size.height * 4) as usize].into(),
+            data: Some(vec![0; (size.width * size.height * 4) as usize]),
             ..default()
         };
         image.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;
@@ -115,10 +120,11 @@ fn setup_worldspace_system(
                 load_op: LoadOp::Clear(Color::srgb_u8(43, 44, 47).to_linear().into()),
             },
             // We want the "tablet" mesh behind to react to pointer inputs.
-            // PickingBehavior {
-            //     should_block_lower: false,
-            //     is_hoverable: true,
-            // },
+            Pickable {
+                should_block_lower: false,
+                is_hoverable: true,
+            },
+            EguiMultipassSchedule::new(WorldspaceContextPass),
         ))
         .with_children(|commands| {
             // The "tablet" mesh, on top of which Egui is rendered.
@@ -147,9 +153,11 @@ fn setup_worldspace_system(
 fn draw_gizmos_system(
     mut gizmos: Gizmos,
     egui_mesh_query: Query<&Transform, With<EguiRenderToImage>>,
-) {
-    let egui_mesh_transform = egui_mesh_query.single().unwrap();
+) -> Result {
+    let egui_mesh_transform = egui_mesh_query.single()?;
     gizmos.axes(*egui_mesh_transform, 0.1);
+
+    Ok(())
 }
 
 fn handle_over_system(

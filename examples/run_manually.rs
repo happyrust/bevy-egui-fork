@@ -1,14 +1,15 @@
-use std::num::NonZero;
-
 use bevy::prelude::*;
 use bevy_egui::{
     EguiContext, EguiContextSettings, EguiFullOutput, EguiInput, EguiPlugin, EguiStartupSet,
 };
+use std::num::NonZero;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(EguiPlugin)
+        .add_plugins(EguiPlugin {
+            enable_multipass_for_primary_context: false,
+        })
         .add_systems(
             PreStartup,
             configure_context.after(EguiStartupSet::InitContexts),
@@ -17,12 +18,15 @@ fn main() {
         .run();
 }
 
-fn configure_context(mut egui_settings: Query<&mut EguiContextSettings>) {
-    egui_settings.single_mut().run_manually = true;
+fn configure_context(mut egui_settings: Query<&mut EguiContextSettings>) -> Result {
+    egui_settings.single_mut()?.run_manually = true;
+    Ok(())
 }
 
-fn ui_example_system(mut contexts: Query<(&mut EguiContext, &mut EguiInput, &mut EguiFullOutput)>) {
-    let (mut ctx, mut egui_input, mut egui_full_output) = contexts.single_mut();
+fn ui_example_system(
+    mut contexts: Query<(&mut EguiContext, &mut EguiInput, &mut EguiFullOutput)>,
+) -> Result {
+    let (mut ctx, mut egui_input, mut egui_full_output) = contexts.single_mut()?;
 
     let ui = |ctx: &egui::Context| {
         egui::Window::new("Hello").show(ctx, |ui| {
@@ -41,4 +45,6 @@ fn ui_example_system(mut contexts: Query<(&mut EguiContext, &mut EguiInput, &mut
     });
 
     **egui_full_output = Some(ctx.run(egui_input.take(), ui));
+
+    Ok(())
 }

@@ -1,9 +1,8 @@
 use bevy::{
+    log::{Level, LogPlugin},
     prelude::*,
 };
-use bevy_log::{Level, LogPlugin};
-use bevy_window::PrimaryWindow;
-use bevy_egui::{EguiContextSettings, EguiContexts, EguiPlugin};
+use bevy_egui::{EguiContextPass, EguiContextSettings, EguiContexts, EguiPlugin};
 
 struct Images {
     bevy_icon: Handle<Image>,
@@ -30,11 +29,11 @@ fn main() {
         .init_resource::<UiState>()
         .add_plugins(
             DefaultPlugins
-                // .set(LogPlugin {
-                //     filter: "warn,ui=info".to_string(),
-                //     level: Level::INFO,
-                //     ..Default::default()
-                // })
+                .set(LogPlugin {
+                    filter: "warn,ui=info".to_string(),
+                    level: Level::INFO,
+                    ..Default::default()
+                })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         // You may want this set to `true` if you need virtual keyboard work in mobile browsers.
@@ -44,16 +43,15 @@ fn main() {
                     ..default()
                 }),
         )
-        .add_plugins(EguiPlugin)
-        .add_plugins(LogPlugin {
-            filter: "warn,ui=info".to_string(),
-            level: Level::INFO,
-            ..Default::default()
+        .add_plugins(EguiPlugin {
+            enable_multipass_for_primary_context: true,
         })
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, configure_ui_state_system)
-        .add_systems(Update, update_ui_scale_factor_system)
-        .add_systems(Update, ui_example_system)
+        .add_systems(
+            EguiContextPass,
+            (ui_example_system, update_ui_scale_factor_system),
+        )
         .run();
 }
 #[derive(Default, Resource)]
@@ -73,11 +71,8 @@ fn configure_visuals_system(mut contexts: EguiContexts) {
     });
 }
 
-fn configure_ui_state_system(mut ui_state: ResMut<UiState>, mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+fn configure_ui_state_system(mut ui_state: ResMut<UiState>) {
     ui_state.is_window_open = true;
-    for mut window in windows. iter_mut() {
-        window.ime_enabled = true;
-    }
 }
 
 fn update_ui_scale_factor_system(
@@ -88,7 +83,7 @@ fn update_ui_scale_factor_system(
     if keyboard_input.just_pressed(KeyCode::Slash) || toggle_scale_factor.is_none() {
         *toggle_scale_factor = Some(!toggle_scale_factor.unwrap_or(true));
 
-        if let Ok((mut egui_settings, window)) = contexts.get_single_mut() {
+        if let Ok((mut egui_settings, window)) = contexts.single_mut() {
             let scale_factor = if toggle_scale_factor.unwrap() {
                 1.0
             } else {
@@ -239,14 +234,12 @@ fn ui_example_system(
             .get(&bevy_icon_handle)
             .expect("images should be created");
 
-        if let Some(data) = &image.data {
-            contexts
-                .ctx_mut()
-                .copy_image(egui::ColorImage::from_rgba_unmultiplied(
-                    image.size().to_array().map(|a| a as usize),
-                    data,
-                ));
-        }
+        contexts
+            .ctx_mut()
+            .copy_image(egui::ColorImage::from_rgba_unmultiplied(
+                image.size().to_array().map(|a| a as usize),
+                image.data.as_ref().expect("image data"),
+            ));
     }
     if remove {
         contexts.remove_image(&images.bevy_icon);

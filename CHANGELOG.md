@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.34.0-rc.2] - 5-Apr-2025
+
+### Fixed
+
+- Fixed rustdoc compilation.
+- Don't compile Egui with the accesskit feature by default.
+
+## [0.34.0-rc.1] - 5-Apr-2025
+
+### Added
+
+- Implement multi-pass support ([#372](https://github.com/vladbat00/bevy_egui/pull/372)).
+  - **Breaking change:** this adds a new `enable_multipass_for_primary_context` field to `EguiPlugin`, see its documentation for the migration guide.  
+- Implement absorbing inputs and Egui input run conditions ([#369](https://github.com/vladbat00/bevy_egui/pull/369), [#373](https://github.com/vladbat00/bevy_egui/pull/373)).
+- (Disabled until the next Egui release) Integrate AccessKit ([#238](https://github.com/vladbat00/bevy_egui/pull/238) by @ndarilek).
+
+### Changed
+
+- Update Bevy to 0.16 ([#367](https://github.com/vladbat00/bevy_egui/pull/367) by @Friz64).
+- Feature-gate `bevy_picking` support behind the `picking` feature ([#363](https://github.com/vladbat00/bevy_egui/pull/363) by @jakkos-net).
+- Updated the minimum required version of wasm-binggen to `0.2.93` to match the actual version needed to compile `bevy_egui`.
+
+### Fixed
+
+- Fixed missing `EguiOutput` updates ([#371](https://github.com/vladbat00/bevy_egui/pull/371)).
+- Fixed non-latin hotkeys ([#374](https://github.com/vladbat00/bevy_egui/pull/374) by @VinTarZ).
+- Fixed multiple windows when a window is spawned later ([#332](https://github.com/vladbat00/bevy_egui/pull/332) by @jabuwu).
+
+### Misc
+
+- Added a side_panel example for 2D ([#253](https://github.com/vladbat00/bevy_egui/pull/253) by @weberja).
+
 ## [0.33.0] - 16-Feb-2025
 
 ### Changed

@@ -29,11 +29,13 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
       - name: Install bevy_cli
-        run: cargo install --git https://github.com/TheBevyFlock/bevy_cli bevy_cli
+        run: cargo install --git https://github.com/Magi3r/bevy_cli --branch Magi3r/issue307 bevy_cli --force
 
-      - name: Build color_test
+      - name: Build absorb_input
         # The first run may prompt to install dependencies, hence the `--yes` flag.
-        run: bevy build --yes --example color_test web --bundle
+        run: bevy build --yes --example absorb_input web --bundle
+      - name: Build color_test
+        run: bevy build --example color_test web --bundle
       - name: Build paint_callback
         run: bevy build --example paint_callback web --bundle
       - name: Build render_egui_to_image
@@ -46,8 +48,8 @@ jobs:
         run: bevy build --example side_panel_3d web --bundle
       - name: Build simple
         run: bevy build --example simple web --bundle
-      - name: Build simple_multipass
-        run: bevy build --example simple_multipass web --bundle
+      - name: Build run_manually
+        run: bevy build --example run_manually web --bundle
       # We skip the two_windows example as it's not supported in WASM
       - name: Build ui
         run: bevy build --example ui web --bundle
