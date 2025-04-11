@@ -2,6 +2,7 @@ use bevy::{
     log::{Level, LogPlugin},
     prelude::*,
 };
+use bevy_window::PrimaryWindow;
 use bevy_egui::{EguiContextPass, EguiContextSettings, EguiContexts, EguiPlugin};
 
 struct Images {
@@ -71,8 +72,11 @@ fn configure_visuals_system(mut contexts: EguiContexts) {
     });
 }
 
-fn configure_ui_state_system(mut ui_state: ResMut<UiState>) {
+fn configure_ui_state_system(mut ui_state: ResMut<UiState>, mut windows: Query<&mut Window, With<PrimaryWindow>>) {
     ui_state.is_window_open = true;
+    for mut window in windows. iter_mut() {
+        window.ime_enabled = true;
+    }
 }
 
 fn update_ui_scale_factor_system(
