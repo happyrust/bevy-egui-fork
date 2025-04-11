@@ -16,6 +16,8 @@ use bevy_egui::{
     egui_node::{EguiBevyPaintCallback, EguiBevyPaintCallbackImpl, EguiPipelineKey},
     EguiContexts, EguiPlugin, EguiRenderToImage,
 };
+use bevy_math::{primitives::Cuboid, Vec3};
+use bevy_transform::components::Transform;
 use std::path::Path;
 use wgpu_types::{Extent3d, TextureUsages};
 
@@ -197,7 +199,7 @@ fn setup_worldspace(
         };
         let mut output_texture = Image {
             // You should use `0` so that the pixels are transparent.
-            data: vec![0; (size.width * size.height * 4) as usize],
+            data: vec![0; (size.width * size.height * 4) as usize].into(),
             ..default()
         };
         output_texture.texture_descriptor.usage |= TextureUsages::RENDER_ATTACHMENT;

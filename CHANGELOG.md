@@ -5,6 +5,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.33.0] - 16-Feb-2025
+
+### Changed
+
+- Update Egui to 0.31 ([#357](https://github.com/vladbat00/bevy_egui/pull/357) by @tomara-x).
+  - Implement the new `egui::OutputCommand::CopyImage` command support ([#361](https://github.com/vladbat00/bevy_egui/pull/361)).  
+- Change `EguiRenderOutput` internals to improve performance, and other optimizations ([#359](https://github.com/vladbat00/bevy_egui/pull/359) by @PPakalns). 
+
+## [0.32.0] - 6-Jan-2025
+
+### Added
+
+- Basic `bevy_picking` support to prevent picking through Egui windows ([#338](https://github.com/vladbat00/bevy_egui/pull/338), [#331](https://github.com/vladbat00/bevy_egui/pull/331) by @globin and @aevyrie).
+- Helpers for converting between Egui and Bevy types ([#345](https://github.com/vladbat00/bevy_egui/pull/345), [488ac6a](https://github.com/vladbat00/bevy_egui/commit/488ac6a9d8fc3e1be98b494aed83751415beb845)).
+
+### Changed
+
+- Update Egui to 0.30 ([#340](https://github.com/vladbat00/bevy_egui/pull/340) by @PPakalns).
+- Reuse IDs of removed textures ([#344](https://github.com/vladbat00/bevy_egui/pull/344)).
+- Input handling refactor ([#345](https://github.com/vladbat00/bevy_egui/pull/345)).
+  - This brings us closer to diegetic (world space) UI support, the `HoveredNonWindowEguiContext`
+    and `FocusedNonWindowEguiContext` resources can now be used to redirect input
+    events to other contexts.
+  - Input handling was split into separate systems for each event type, which are now also disableable ([#346](https://github.com/vladbat00/bevy_egui/pull/346)), 
+    see the `EguiGlobalSettings` resource.
+  - The `EguiInputEvent` event type was added, which wraps all the events that are sent to Egui.
+    It can also be used for custom input events logic, in case you want to mock inputs or handle inputs yourself. 
+  - The `EguiSettings` component was renamed to `EguiContextSettings`.
+  - `EguiSet` was split into the `EguiPreUpdateSet` and `EguiPostUpdateSet` sets.
+    - `EguiInputSet` was also added (as `EguiPreUpdateSet::ProcessInput` subsets).
+- Egui contexts are now immediately initialised for entities with a `EguiRenderToImage` component
+  (as opposed to being initialised with a delay by a separate system),
+  thanks to Bevy [required components](https://docs.rs/bevy/0.15.1/bevy/prelude/trait.Component.html#required-components).
+
+### Fixed
+
+- Fix clipboard error handling ([#347](https://github.com/vladbat00/bevy_egui/pull/347)).
+
 ## [0.31.1] - 30-Nov-2024
 
 ### Fixed

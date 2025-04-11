@@ -1,9 +1,9 @@
 [package]
 name = "bevy_egui"
-version = "0.31.1"
+version = "0.33.0"
 # Needed for LazyLock https://doc.rust-lang.org/stable/std/sync/struct.LazyLock.html
 rust-version = "1.80.0"
-authors = ["mvlabat <mvlabat@gmail.com>"]
+authors = ["vladbat00 <vladyslav.batyrenko@gmail.com>"]
 description = "A plugin for Egui integration into Bevy"
 license = "MIT"
 edition = "2021"
@@ -18,23 +18,26 @@ all-features = true
 [features]
 default = ["manage_clipboard", "open_url", "default_fonts", "render"]
 immutable_ctx = []
-manage_clipboard = ["arboard", "thread_local"]
+manage_clipboard = ["arboard", "thread_local", "bytemuck"]
 open_url = ["webbrowser"]
 default_fonts = ["egui/default_fonts"]
 render = [
     "bevy_asset",
     "bevy_image",
-    "bevy_picking",
     "bevy_render",
     "encase",
     "bytemuck",
     "egui/bytemuck",
     "wgpu-types",
 ]
+picking = ["bevy_picking"]
 serde = ["egui/serde"]
 # The enabled logs will print with the info log level, to make it less cumbersome to debug in browsers.
 log_input_events = []
 
+[[example]]
+name = "color_test"
+required-features = ["render"]
 [[example]]
 name = "paint_callback"
 required-features = ["render"]
@@ -42,7 +45,10 @@ required-features = ["render"]
 name = "render_to_image_widget"
 required-features = ["render"]
 [[example]]
-name = "side_panel"
+name = "side_panel_2d"
+required-features = ["render"]
+[[example]]
+name = "side_panel_3d"
 required-features = ["render"]
 [[example]]
 name = "simple"
@@ -58,38 +64,36 @@ name = "ui"
 required-features = ["render"]
 [[example]]
 name = "render_egui_to_image"
-required-features = ["render"]
+required-features = ["picking", "render", "bevy/bevy_gizmos"]
 
 [dependencies]
-#bevy = { path = "../bevy", default-features = false, features = [
-#    "bevy_asset",
-#    "bevy_winit",
-#    "bevy_window",
-#] }
-bevy_app = { path = "../bevy/crates/bevy_app"}
-bevy_derive = { path = "../bevy/crates/bevy_derive"}
-bevy_ecs = { path = "../bevy/crates/bevy_ecs"}
-bevy_input = { path = "../bevy/crates/bevy_input"}
-bevy_log = { path = "../bevy/crates/bevy_log"}
-bevy_math = { path = "../bevy/crates/bevy_math"}
-bevy_reflect = { path = "../bevy/crates/bevy_reflect"}
-bevy_window = { path = "../bevy/crates/bevy_window"}
-bevy_time = { path = "../bevy/crates/bevy_time"}
-bevy_picking = { path = "../bevy/crates/bevy_picking"}
-bevy_winit = { path = "../bevy/crates/bevy_winit"}
-bevy_utils = { path = "../bevy/crates/bevy_utils"}
-bytemuck = { version = "1", optional = true }
-egui = { path = "../egui/crates/egui", default-features = false, features = [
-    "bytemuck",
-] }
-wgpu-types = { path = "../wgpu/wgpu-types", optional = true }
-webbrowser = { version = "1.0.1", optional = true }
+bevy_app = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_app" }
+bevy_derive = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_derive" }
+bevy_ecs = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_ecs" }
+bevy_input = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_input" }
+bevy_log = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_log" }
+bevy_math = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_math" }
+bevy_transform = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_transform" }
+bevy_reflect = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_reflect" }
+bevy_time = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_time" }
+bevy_utils = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_utils" }
+bevy_winit = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_winit", features = ["custom_cursor"] }
+bevy_window = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_window" }
+bevy_platform_support = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_platform_support" }
+
+bytemuck = { version = "1", optional = true}
+egui = { git = "https://gitee.com/happydpc/egui.git", default-features = false, features = ["bytemuck"] }
+webbrowser = { version = "0.8.2", optional = true }
+wgpu-types = { git = "https://gitee.com/happydpc/wgpu.git" , optional = true }
 
 # `render` feature
-bevy_asset = { path = "../bevy/crates/bevy_asset", optional = true }
-bevy_image = { path = "../bevy/crates/bevy_image", optional = true }
-bevy_render = { path = "../bevy/crates/bevy_render", optional = true }
+bevy_asset = {  git = "https://gitee.com/happydpc/bevy.git", package = "bevy_asset", optional = true }
+bevy_image = {  git = "https://gitee.com/happydpc/bevy.git", package = "bevy_image", optional = true }
+bevy_render = {  git = "https://gitee.com/happydpc/bevy.git", package = "bevy_render", optional = true }
 encase = { version = "0.10", optional = true }
+
+# `picking` feature
+bevy_picking = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_picking", optional = true }
 
 # `manage_clipboard` feature
 [target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dependencies]
@@ -98,27 +102,31 @@ thread_local = { version = "1.1.0", optional = true }
 
 [dev-dependencies]
 version-sync = "0.9.4"
-bevy = { path = "../bevy", default-features = false, features = [
-    "x11",
-    "png",
-    "bevy_pbr",
-    "bevy_core_pipeline",
+bevy = { git = "https://gitee.com/happydpc/bevy.git" , default-features = false, features = [
+    "std",
+    "async_executor",
     "bevy_asset",
+    "bevy_core_pipeline",
+    "bevy_pbr",
+    "bevy_mesh_picking_backend",
+    "bevy_sprite",
     "bevy_window",
     "bevy_winit",
+    "bevy_picking",
+    "android-game-activity",
+    "png",
     "tonemapping_luts",
     "webgl2",
-    "android-game-activity",
+    "x11",
 ] }
-egui = { path = "../egui/crates/egui", default-features = false, features = [
-    "bytemuck",
-] }
+egui = { git = "https://gitee.com/happydpc/egui.git" , default-features = false, features = ["bytemuck"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = { path = "../winit" }
+winit = { git = "https://gitee.com/happydpc/winit.git" }
 web-sys = { version = "0.3.74", features = [
     "Clipboard",
     "ClipboardEvent",
+    "ClipboardItem",
     "CompositionEvent",
     "DataTransfer",
     "Document",
@@ -130,11 +138,9 @@ web-sys = { version = "0.3.74", features = [
     "TouchEvent",
     "Window",
 ] }
+image = { version = "0.25.5", features = ["png"] } # For copying images
 js-sys = "0.3.63"
 wasm-bindgen = "0.2.84"
 wasm-bindgen-futures = "0.4.36"
-log = "0.4"
-crossbeam-channel = "0.5.11"
+crossbeam-channel = "0.5.8"
 
-[workspace]
-members = ["run-wasm"]

@@ -1,8 +1,9 @@
 use bevy::{
-    log::{Level, LogPlugin},
     prelude::*,
 };
-use bevy_egui::{EguiContexts, EguiPlugin, EguiSettings};
+use bevy_log::{Level, LogPlugin};
+use bevy_window::PrimaryWindow;
+use bevy_egui::{EguiContextSettings, EguiContexts, EguiPlugin};
 
 struct Images {
     bevy_icon: Handle<Image>,
@@ -29,11 +30,11 @@ fn main() {
         .init_resource::<UiState>()
         .add_plugins(
             DefaultPlugins
-                .set(LogPlugin {
-                    filter: "warn,ui=info".to_string(),
-                    level: Level::INFO,
-                    ..Default::default()
-                })
+                // .set(LogPlugin {
+                //     filter: "warn,ui=info".to_string(),
+                //     level: Level::INFO,
+                //     ..Default::default()
+                // })
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         // You may want this set to `true` if you need virtual keyboard work in mobile browsers.
@@ -44,6 +45,11 @@ fn main() {
                 }),
         )
         .add_plugins(EguiPlugin)
+        .add_plugins(LogPlugin {
+            filter: "warn,ui=info".to_string(),
+            level: Level::INFO,
+            ..Default::default()
+        })
         .add_systems(Startup, configure_visuals_system)
         .add_systems(Startup, configure_ui_state_system)
         .add_systems(Update, update_ui_scale_factor_system)
@@ -62,19 +68,22 @@ struct UiState {
 
 fn configure_visuals_system(mut contexts: EguiContexts) {
     contexts.ctx_mut().set_visuals(egui::Visuals {
-        window_rounding: 0.0.into(),
+        window_corner_radius: 0.0.into(),
         ..Default::default()
     });
 }
 
-fn configure_ui_state_system(mut ui_state: ResMut<UiState>) {
+fn configure_ui_state_system(mut ui_state: ResMut<UiState>, mut windows: Query<&mut Window, With<PrimaryWindow>>) {
     ui_state.is_window_open = true;
+    for mut window in windows. iter_mut() {
+        window.ime_enabled = true;
+    }
 }
 
 fn update_ui_scale_factor_system(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut toggle_scale_factor: Local<Option<bool>>,
-    mut contexts: Query<(&mut EguiSettings, &Window)>,
+    mut contexts: Query<(&mut EguiContextSettings, &Window)>,
 ) {
     if keyboard_input.just_pressed(KeyCode::Slash) || toggle_scale_factor.is_none() {
         *toggle_scale_factor = Some(!toggle_scale_factor.unwrap_or(true));
@@ -100,6 +109,7 @@ fn ui_example_system(
     // If you need to access the ids from multiple systems, you can also initialize the `Images`
     // resource while building the app and use `Res<Images>` instead.
     images: Local<Images>,
+    image_assets: ResMut<Assets<Image>>,
     mut contexts: EguiContexts,
 ) {
     let egui_texture_handle = ui_state
@@ -114,6 +124,7 @@ fn ui_example_system(
         .clone();
 
     let mut load = false;
+    let mut copy = false;
     let mut remove = false;
     let mut invert = false;
 
@@ -147,6 +158,7 @@ fn ui_example_system(
             ui.allocate_space(egui::Vec2::new(1.0, 100.0));
             ui.horizontal(|ui| {
                 load = ui.button("Load").clicked();
+                copy = ui.button("Copy").clicked();
                 invert = ui.button("Invert").clicked();
                 remove = ui.button("Remove").clicked();
             });
@@ -213,13 +225,28 @@ fn ui_example_system(
     if invert {
         ui_state.inverted = !ui_state.inverted;
     }
+    let bevy_icon_handle = if ui_state.inverted {
+        images.bevy_icon_inverted.clone_weak()
+    } else {
+        images.bevy_icon.clone_weak()
+    };
     if load || invert {
         // If an image is already added to the context, it'll return an existing texture id.
-        if ui_state.inverted {
-            *rendered_texture_id = contexts.add_image(images.bevy_icon_inverted.clone_weak());
-        } else {
-            *rendered_texture_id = contexts.add_image(images.bevy_icon.clone_weak());
-        };
+        *rendered_texture_id = contexts.add_image(bevy_icon_handle.clone_weak());
+    }
+    if copy {
+        let image = image_assets
+            .get(&bevy_icon_handle)
+            .expect("images should be created");
+
+        if let Some(data) = &image.data {
+            contexts
+                .ctx_mut()
+                .copy_image(egui::ColorImage::from_rgba_unmultiplied(
+                    image.size().to_array().map(|a| a as usize),
+                    data,
+                ));
+        }
     }
     if remove {
         contexts.remove_image(&images.bevy_icon);
