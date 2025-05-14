@@ -29,7 +29,7 @@ jobs:
         run: sudo apt-get update; sudo apt-get install --no-install-recommends libasound2-dev libudev-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev
 
       - name: Install bevy_cli
-        run: cargo install --git https://github.com/Magi3r/bevy_cli --branch Magi3r/issue307 bevy_cli --force
+        run: cargo install --git https://github.com/TheBevyFlock/bevy_cli bevy_cli --force
 
       - name: Build absorb_input
         # The first run may prompt to install dependencies, hence the `--yes` flag.

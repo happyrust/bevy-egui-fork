@@ -12,7 +12,7 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_image::Image;
 use bevy_log as log;
 use bevy_math::Vec2;
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_render::{
     extract_resource::ExtractResource,
     render_asset::RenderAssets,

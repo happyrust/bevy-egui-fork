@@ -91,47 +91,47 @@
 //! cargo run --example ui
 //! ```
 //!
-//! ### ui ([live page](https://vladbat00.github.io/bevy_egui/ui), source: [examples/ui.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/ui.rs))
+//! ### ui ([live page](https://vladbat00.github.io/bevy_egui/ui), source: [examples/ui.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/ui.rs))
 //!
 //! Showcasing some more advanced UI, rendering images, hidpi scaling.
 //!
-//! ### absorb_input ([live page](https://vladbat00.github.io/bevy_egui/absorb_input), source: [examples/absorb_input.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/absorb_input.rs))
+//! ### absorb_input ([live page](https://vladbat00.github.io/bevy_egui/absorb_input), source: [examples/absorb_input.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/absorb_input.rs))
 //!
 //! Demonstrating the available options for absorbing input when Egui is using pointer or keyboard.
 //!
-//! ### color_test ([live page](https://vladbat00.github.io/bevy_egui/color_test), source: [examples/color_test.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/color_test.rs))
+//! ### color_test ([live page](https://vladbat00.github.io/bevy_egui/color_test), source: [examples/color_test.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/color_test.rs))
 //!
 //! Rendering test from [egui.rs](https://egui.rs). We don't fully pass it, help is wanted ([#291](https://github.com/vladbat00/bevy_egui/issues/291)).
 //!
-//! ### side_panel_2d ([live page](https://vladbat00.github.io/bevy_egui/side_panel_2d), source: [examples/side_panel_2d.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/side_panel_2d.rs))
+//! ### side_panel_2d ([live page](https://vladbat00.github.io/bevy_egui/side_panel_2d), source: [examples/side_panel_2d.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/side_panel_2d.rs))
 //!
 //! Showing how to display an Egui side panel and transform a camera with a perspective projection to make rendering centered relative to the remaining screen area.
 //!
-//! ### side_panel_3d ([live page](https://vladbat00.github.io/bevy_egui/side_panel_3d), source: [examples/side_panel_3d.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/side_panel_3d.rs))
+//! ### side_panel_3d ([live page](https://vladbat00.github.io/bevy_egui/side_panel_3d), source: [examples/side_panel_3d.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/side_panel_3d.rs))
 //!
 //! Showing how to display an Egui side panel and transform a camera with a orthographic projection to make rendering centered relative to the remaining screen area.
 //!
-//! ### render_egui_to_image ([live page](https://vladbat00.github.io/bevy_egui/render_egui_to_image), source: [examples/render_egui_to_image.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/render_egui_to_image.rs))
+//! ### render_egui_to_image ([live page](https://vladbat00.github.io/bevy_egui/render_egui_to_image), source: [examples/render_egui_to_image.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/render_egui_to_image.rs))
 //!
 //! Rendering UI to an image (texture) and then using it as a mesh material texture.
 //!
-//! ### render_to_image_widget ([live page](https://vladbat00.github.io/bevy_egui/render_to_image_widget), source: [examples/render_to_image_widget.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/render_to_image_widget.rs))
+//! ### render_to_image_widget ([live page](https://vladbat00.github.io/bevy_egui/render_to_image_widget), source: [examples/render_to_image_widget.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/render_to_image_widget.rs))
 //!
 //! Rendering to a texture with Bevy and showing it as an Egui image widget.
 //!
-//! ### two_windows (source: [examples/two_windows.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/two_windows.rs))
+//! ### two_windows (source: [examples/two_windows.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/two_windows.rs))
 //!
 //! Setting up two windows with an Egui context for each.
 //!
-//! ### paint_callback ([live page](https://vladbat00.github.io/bevy_egui/paint_callback), source: [examples/paint_callback.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/paint_callback.rs))
+//! ### paint_callback ([live page](https://vladbat00.github.io/bevy_egui/paint_callback), source: [examples/paint_callback.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/paint_callback.rs))
 //!
 //! Using Egui paint callbacks.
 //!
-//! ### simple ([live page](https://vladbat00.github.io/bevy_egui/simple), source: [examples/simple.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/simple.rs))
+//! ### simple ([live page](https://vladbat00.github.io/bevy_egui/simple), source: [examples/simple.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/simple.rs))
 //!
 //! The minimal usage example from this readme.
 //!
-//! ### run_manually ([live page](https://vladbat00.github.io/bevy_egui/run_manually), source: [examples/run_manually.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.0-rc.2/examples/run_manually.rs))
+//! ### run_manually ([live page](https://vladbat00.github.io/bevy_egui/run_manually), source: [examples/run_manually.rs](https://github.com/vladbat00/bevy_egui/blob/v0.34.1/examples/run_manually.rs))
 //!
 //! The same minimal example demonstrating running Egui passes manually.
 //!
@@ -197,8 +197,8 @@ use bevy_picking::{
     pointer::{PointerId, PointerLocation},
 };
 #[cfg(feature = "render")]
-use bevy_platform_support::collections::HashMap;
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashMap;
+use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
 #[cfg(feature = "picking")]
 use bevy_render::camera::NormalizedRenderTarget;
@@ -442,6 +442,8 @@ pub struct EguiInputSystemSettings {
     pub run_write_keyboard_input_events_system: bool,
     /// Controls running of the [`write_ime_events_system`] system.
     pub run_write_ime_events_system: bool,
+    /// Controls running of the [`write_file_dnd_events_system`] system.
+    pub run_write_file_dnd_events_system: bool,
     /// Controls running of the [`write_text_agent_channel_events_system`] system.
     #[cfg(target_arch = "wasm32")]
     pub run_write_text_agent_channel_events_system: bool,
@@ -462,6 +464,7 @@ impl Default for EguiInputSystemSettings {
             run_write_non_window_touch_events_system: true,
             run_write_keyboard_input_events_system: true,
             run_write_ime_events_system: true,
+            run_write_file_dnd_events_system: true,
             #[cfg(target_arch = "wasm32")]
             run_write_text_agent_channel_events_system: true,
             #[cfg(all(feature = "manage_clipboard", target_arch = "wasm32"))]
@@ -965,6 +968,7 @@ impl Plugin for EguiPlugin {
         app.init_resource::<ModifierKeysState>();
         app.init_resource::<EguiWantsInput>();
         app.add_event::<EguiInputEvent>();
+        app.add_event::<EguiFileDragAndDropEvent>();
 
         if self.enable_multipass_for_primary_context {
             app.insert_resource(EnableMultipassForPrimaryContext);
@@ -1092,6 +1096,9 @@ impl Plugin for EguiPlugin {
                     })),
                     write_ime_events_system
                         .run_if(input_system_is_enabled(|s| s.run_write_ime_events_system)),
+                    write_file_dnd_events_system.run_if(input_system_is_enabled(|s| {
+                        s.run_write_file_dnd_events_system
+                    })),
                 )
                     .in_set(EguiInputSet::ReadBevyEvents),
                 (
@@ -1186,7 +1193,11 @@ impl Plugin for EguiPlugin {
                 .in_set(EguiPostUpdateSet::ProcessOutput),
         );
         #[cfg(feature = "picking")]
-        app.add_systems(PostUpdate, capture_pointer_input_system);
+        if app.is_plugin_added::<bevy_picking::PickingPlugin>() {
+            app.add_systems(PostUpdate, capture_pointer_input_system);
+        } else {
+            log::warn!("The `bevy_egui/picking` feature is enabled, but `PickingPlugin` is not added (if you use Bevy's `DefaultPlugins`, make sure the `bevy/bevy_picking` feature is enabled too)");
+        }
 
         #[cfg(feature = "render")]
         app.add_systems(

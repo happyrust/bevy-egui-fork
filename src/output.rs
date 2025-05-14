@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{NonSend, Query},
 };
 #[cfg(windows)]
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_window::RequestRedraw;
 use bevy_winit::{cursor::CursorIcon, EventLoopProxy, WakeUp};
 use std::{sync::Arc, time::Duration};
