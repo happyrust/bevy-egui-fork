@@ -88,7 +88,7 @@ bevy_time = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_time"
 bevy_utils = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_utils" }
 bevy_winit = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_winit", features = ["custom_cursor"] }
 bevy_window = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_window" }
-bevy_platform_support = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_platform_support" }
+bevy_platform = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_platform" }
 
 bytemuck = { version = "1", optional = true}
 egui = { git = "https://gitee.com/happydpc/egui.git", default-features = false, features = ["bytemuck"] }

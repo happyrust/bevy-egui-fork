@@ -9,6 +9,7 @@ use crate::{
 use bevy_asset::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
+use bevy_ecs::entity::EntityGeneration;
 use bevy_image::Image;
 use bevy_log as log;
 use bevy_math::Vec2;
@@ -70,7 +71,7 @@ pub struct EguiPass {
     /// Index of the window entity.
     pub entity_index: u32,
     /// Generation of the window entity.
-    pub entity_generation: u32,
+    pub entity_generation: EntityGeneration,
     /// Render target type (e.g. window, image).
     pub render_target_type: EguiRenderTargetType,
 }
