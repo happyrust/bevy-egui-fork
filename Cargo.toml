@@ -15,7 +15,7 @@ features = ["bevy_winit/x11", "immutable_ctx"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-default = ["manage_clipboard", "open_url", "default_fonts", "render", "picking"]
+default = ["manage_clipboard", "open_url", "default_fonts", "render"]
 accesskit_placeholder = ["egui/accesskit", "bevy_a11y"] # the feature won't compile until Egui updates its accesskit version, hence disabled by default
 immutable_ctx = []
 manage_clipboard = ["arboard", "thread_local", "bytemuck"]
