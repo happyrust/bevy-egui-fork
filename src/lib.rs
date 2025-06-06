@@ -322,7 +322,19 @@ pub struct EguiPlugin {
     ///     // ...
     /// }
     /// ```
+    #[deprecated(
+        note = "The option to disable the multi-pass mode is now deprecated, use `EguiPlugin::default` instead"
+    )]
     pub enable_multipass_for_primary_context: bool,
+}
+
+impl Default for EguiPlugin {
+    fn default() -> Self {
+        Self {
+            #[allow(deprecated)]
+            enable_multipass_for_primary_context: true,
+        }
+    }
 }
 
 /// A resource for storing global plugin settings.
@@ -349,6 +361,11 @@ pub struct EguiGlobalSettings {
     /// Apply `run_if(not(egui_wants_any_pointer_input))` or `run_if(not(egui_wants_any_keyboard_input))` to your systems
     /// that need to be disabled while Egui is using input (see the [`egui_wants_any_pointer_input`], [`egui_wants_any_keyboard_input`] run conditions).
     pub enable_absorb_bevy_input_system: bool,
+    /// Controls whether `bevy_egui` updates [`CursorIcon`], enabled by default.
+    ///
+    /// If you want to have custom cursor icons in your app, set this to `false` to avoid Egui
+    /// overriding the icons.
+    pub enable_cursor_icon_updates: bool,
 }
 
 impl Default for EguiGlobalSettings {
@@ -357,6 +374,7 @@ impl Default for EguiGlobalSettings {
             enable_focused_non_window_context_updates: true,
             input_system_settings: EguiInputSystemSettings::default(),
             enable_absorb_bevy_input_system: false,
+            enable_cursor_icon_updates: true,
         }
     }
 }
@@ -379,7 +397,7 @@ pub struct EguiContextSettings {
     /// use bevy_egui::EguiContextSettings;
     ///
     /// fn update_ui_scale_factor(mut windows: Query<(&mut EguiContextSettings, &Window), With<PrimaryWindow>>) {
-    ///     if let Ok((mut egui_settings, window)) = windows.get_single_mut() {
+    ///     if let Ok((mut egui_settings, window)) = windows.single_mut() {
     ///         egui_settings.scale_factor = 1.0 / window.scale_factor();
     ///     }
     /// }
@@ -394,6 +412,11 @@ pub struct EguiContextSettings {
     pub capture_pointer_input: bool,
     /// Controls running of the input systems.
     pub input_system_settings: EguiInputSystemSettings,
+    /// Controls whether `bevy_egui` updates [`CursorIcon`], enabled by default.
+    ///
+    /// If you want to have custom cursor icons in your app, set this to `false` to avoid Egui
+    /// overriding the icons.
+    pub enable_cursor_icon_updates: bool,
 }
 
 // Just to keep the PartialEq
@@ -417,6 +440,7 @@ impl Default for EguiContextSettings {
             #[cfg(feature = "picking")]
             capture_pointer_input: true,
             input_system_settings: EguiInputSystemSettings::default(),
+            enable_cursor_icon_updates: true,
         }
     }
 }
@@ -970,6 +994,7 @@ impl Plugin for EguiPlugin {
         app.add_event::<EguiInputEvent>();
         app.add_event::<EguiFileDragAndDropEvent>();
 
+        #[allow(deprecated)]
         if self.enable_multipass_for_primary_context {
             app.insert_resource(EnableMultipassForPrimaryContext);
         }
@@ -1189,7 +1214,13 @@ impl Plugin for EguiPlugin {
         );
         app.add_systems(
             PostUpdate,
-            (process_output_system, write_egui_wants_input_system)
+            (
+                process_output_system,
+                write_egui_wants_input_system,
+                #[cfg(any(target_os = "ios", target_os = "android"))]
+                // show the virtual keyboard on mobile devices
+                set_ime_allowed_system,
+            )
                 .in_set(EguiPostUpdateSet::ProcessOutput),
         );
         #[cfg(feature = "picking")]
@@ -1769,6 +1800,19 @@ pub fn run_egui_context_pass_loop_system(world: &mut World) {
             .output = Some(output);
     }
 
+    // If Egui's running in the single-pass mode and a user placed all the UI systems in `EguiContextPass`,
+    // we want to run the schedule just once.
+    // (And since the code above runs only for multi-pass contexts, it's not run yet in the case of single-pass.)
+    if world
+        .query_filtered::<Entity, (With<EguiContext>, With<PrimaryWindow>)>()
+        .iter(world)
+        .next()
+        .is_none()
+    {
+        // Silly control flow to test that we still have a context. Attempting to run the schedule
+        // when a user has closed a window will result in a panic.
+        return;
+    }
     if !used_schedules.contains(&ScheduleLabel::intern(&EguiContextPass)) {
         let _ = world.try_run_schedule(EguiContextPass);
     }

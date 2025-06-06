@@ -7,9 +7,7 @@ use std::num::NonZero;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(EguiPlugin {
-            enable_multipass_for_primary_context: false,
-        })
+        .add_plugins(EguiPlugin::default())
         .add_systems(
             PreStartup,
             configure_context.after(EguiStartupSet::InitContexts),
@@ -34,7 +32,7 @@ fn ui_example_system(
                 .ctx()
                 .viewport(|viewport| viewport.output.num_completed_passes)
                 + 1;
-            ui.label(format!("Passes: {}", passes));
+            ui.label(format!("Passes: {passes}"));
             ui.ctx().request_discard("Trying to reach max limit");
         });
     };
