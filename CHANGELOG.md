@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.35.0] - 30-Jun-2025
+
+### Added
+
+- Implement Bevy picking support for meshes ([#394](https://github.com/vladbat00/bevy_egui/pull/394)).
+  - You can now implement diegetic UIs with Egui! See the updated [`examples/render_egui_to_image.rs`](./examples/render_egui_to_image.rs) example.
+
+### Changed
+
+- **Breaking change:** Deprecate the option to disable the multi-pass mode ([#387](https://github.com/vladbat00/bevy_egui/pull/387)).
+  - The plugin should be initialized with `EguiPlugin::default()` now.
+  - The single-pass support is going to be removed in the future. If you still need it for any reason, please let me know in the issues!
+- **Breaking change:** Attach `EguiContext` instances to cameras ([#392](https://github.com/vladbat00/bevy_egui/pull/392)).
+  - For Egui to render, users now need at least one camera in the world. Egui automatically attaches itself to the first created camera, but more precise control is also possible: for details, see the [examples/side_panel.rs](./examples/side_panel.rs) example.
+  - This is also a breaking change for users having multiple windows or accessing the `Window` component together with `EguiContext` (or any other related to Egui) in a single query.  
+- **Breaking change:** Refactor `EguiContexts` to support Bevy result systems ([#393](https://github.com/vladbat00/bevy_egui/pull/393)).
+  - With this change, systems using `EguiContexts` should be transformed into [Result systems](https://bevy.org/news/bevy-0-16/#unified-ecs-error-handling). 
+- Update cursor icons only if changed, make updates disableable ([#388](https://github.com/vladbat00/bevy_egui/pull/388)).
+
+### Fixed
+
+- Fix the panic when closing a window ([#385](https://github.com/vladbat00/bevy_egui/pull/385)).
+- Show the virtual keyboard on mobile when text input is focused ([#383](https://github.com/vladbat00/bevy_egui/pull/383) by @arcln).
+
+### Misc
+
+- Remove default features from the `image` dependency ([#380](https://github.com/vladbat00/bevy_egui/pull/380) by @djeedai).
+- Add a new example demonstrating split screens: [`examples/split_screen.rs`](./examples/split_screen.rs).
+
 ## [0.34.1] - 26-Apr-2025
 
 ### Fixed

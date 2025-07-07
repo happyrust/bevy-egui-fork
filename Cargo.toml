@@ -1,6 +1,6 @@
 [package]
 name = "bevy_egui"
-version = "0.34.1"
+version = "0.35.0"
 # Needed for LazyLock https://doc.rust-lang.org/stable/std/sync/struct.LazyLock.html
 rust-version = "1.80.0"
 authors = ["vladbat00 <vladyslav.batyrenko@gmail.com>"]
@@ -23,14 +23,16 @@ open_url = ["webbrowser"]
 default_fonts = ["egui/default_fonts"]
 render = [
     "bevy_asset",
+    "bevy_core_pipeline",
     "bevy_image",
     "bevy_render",
+    "bevy_transform",
     "encase",
     "bytemuck",
     "egui/bytemuck",
     "wgpu-types",
 ]
-picking = ["bevy_picking"]
+picking = ["render", "bevy_picking"]
 serde = ["egui/serde"]
 # The enabled logs will print with the info log level, to make it less cumbersome to debug in browsers.
 log_input_events = []
@@ -53,13 +55,13 @@ required-features = ["render"]
 name = "run_manually"
 required-features = ["render"]
 [[example]]
-name = "side_panel_2d"
-required-features = ["render"]
-[[example]]
-name = "side_panel_3d"
+name = "side_panel"
 required-features = ["render"]
 [[example]]
 name = "simple"
+required-features = ["render"]
+[[example]]
+name = "split_screen"
 required-features = ["render"]
 [[example]]
 name = "two_windows"

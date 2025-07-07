@@ -1,11 +1,11 @@
 use crate::{
-    helpers, EguiContext, EguiContextSettings, EguiFullOutput, EguiGlobalSettings, EguiOutput,
-    EguiRenderOutput,
+    helpers, input::WindowToEguiContextMap, EguiContext, EguiContextSettings, EguiFullOutput,
+    EguiGlobalSettings, EguiOutput, EguiRenderOutput,
 };
 use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
-    system::{Local, NonSend, Query, Res},
+    system::{Commands, Local, NonSend, Query, Res},
 };
 use bevy_platform::collections::HashMap;
 use bevy_window::RequestRedraw;
@@ -14,14 +14,15 @@ use std::{sync::Arc, time::Duration};
 use egui::OutputCommand;
 
 /// Reads Egui output.
+#[allow(clippy::too_many_arguments)]
 pub fn process_output_system(
-    mut contexts: Query<(
+    mut commands: Commands,
+    mut context_query: Query<(
         Entity,
         &mut EguiContext,
         &mut EguiFullOutput,
         &mut EguiRenderOutput,
         &mut EguiOutput,
-        Option<&mut CursorIcon>,
         &EguiContextSettings,
     )>,
     #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
@@ -30,18 +31,12 @@ pub fn process_output_system(
     mut last_cursor_icon: Local<HashMap<Entity, egui::CursorIcon>>,
     event_loop_proxy: Option<NonSend<EventLoopProxy<WakeUp>>>,
     egui_global_settings: Res<EguiGlobalSettings>,
+    window_to_egui_context_map: Res<WindowToEguiContextMap>,
 ) {
     let mut should_request_redraw = false;
 
-    for (
-        entity,
-        mut context,
-        mut full_output,
-        mut render_output,
-        mut egui_output,
-        cursor_icon,
-        settings,
-    ) in contexts.iter_mut()
+    for (entity, mut context, mut full_output, mut render_output, mut egui_output, settings) in
+        context_query.iter_mut()
     {
         let ctx = context.get_mut();
         let Some(full_output) = full_output.0.take() else {
@@ -57,8 +52,8 @@ pub fn process_output_system(
         } = full_output;
         let paint_jobs = ctx.tessellate(shapes, pixels_per_point);
 
-        render_output.paint_jobs = Arc::new(paint_jobs);
-        render_output.textures_delta = Arc::new(textures_delta);
+        render_output.paint_jobs = paint_jobs;
+        render_output.textures_delta = textures_delta;
         egui_output.platform_output = platform_output;
 
         for command in &egui_output.platform_output.commands {
@@ -100,13 +95,13 @@ pub fn process_output_system(
         }
 
         if egui_global_settings.enable_cursor_icon_updates && settings.enable_cursor_icon_updates {
-            if let Some(mut cursor) = cursor_icon {
+            if let Some(window_entity) = window_to_egui_context_map.context_to_window.get(&entity) {
                 let last_cursor_icon = last_cursor_icon.entry(entity).or_default();
                 if *last_cursor_icon != egui_output.platform_output.cursor_icon {
-                    *cursor = CursorIcon::System(
+                    commands.entity(*window_entity).insert(CursorIcon::System(
                         helpers::egui_to_winit_cursor_icon(egui_output.platform_output.cursor_icon)
                             .unwrap_or(bevy_window::SystemCursorIcon::Default),
-                    );
+                    ));
                     *last_cursor_icon = egui_output.platform_output.cursor_icon;
                 }
             }

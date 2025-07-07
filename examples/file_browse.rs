@@ -1,12 +1,17 @@
 use bevy::prelude::*;
-use bevy_egui::{EguiContextPass, EguiPlugin};
+use bevy_egui::{EguiPlugin, EguiPrimaryContextPass};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin::default())
-        .add_systems(EguiContextPass, foo::ui_system)
+        .add_systems(Startup, setup_camera_system)
+        .add_systems(EguiPrimaryContextPass, foo::ui_system)
         .run();
+}
+
+fn setup_camera_system(mut commands: Commands) {
+    commands.spawn(Camera2d);
 }
 
 #[cfg(not(any(target_os = "ios", target_os = "android", target_arch = "wasm32")))]
@@ -30,8 +35,8 @@ mod foo {
         mut contexts: EguiContexts,
         mut state: Local<MyState>,
         mut file_dialog: Local<Option<Task<DialogResponse>>>,
-    ) {
-        let ctx = contexts.ctx_mut();
+    ) -> Result {
+        let ctx = contexts.ctx_mut()?;
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.label("Drag-and-drop files onto the window!");
 
@@ -100,7 +105,9 @@ mod foo {
             if i.raw.modifiers.ctrl {
                 info!("ctrl pressed");
             }
-        })
+        });
+
+        Ok(())
     }
 
     fn preview_files_being_dropped(ctx: &egui::Context) {

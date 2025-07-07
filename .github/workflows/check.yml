@@ -58,7 +58,7 @@ jobs:
             "manage_clipboard",
             "open_url",
             "render",
-            "manage_clipboard,open_url,render",
+            "manage_clipboard,open_url,render,picking,bevy/bevy_gizmos",
           ]
     steps:
       - uses: actions/checkout@v3
@@ -83,7 +83,7 @@ jobs:
             "manage_clipboard",
             "open_url",
             "render",
-            "manage_clipboard,open_url,render",
+            "manage_clipboard,open_url,render,picking,bevy/bevy_gizmos",
           ]
     steps:
       - uses: actions/checkout@v3
@@ -112,7 +112,7 @@ jobs:
             "manage_clipboard",
             "open_url",
             "render",
-            "manage_clipboard,open_url,render",
+            "manage_clipboard,open_url,render,picking,bevy/bevy_gizmos",
           ]
     steps:
       - uses: actions/checkout@v3

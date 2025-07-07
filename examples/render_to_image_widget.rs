@@ -8,15 +8,18 @@ use bevy::{
         view::RenderLayers,
     },
 };
-use bevy_egui::{egui::Widget, EguiContextPass, EguiContexts, EguiPlugin, EguiUserTextures};
+use bevy_egui::{
+    egui::Widget, EguiContexts, EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass,
+    EguiUserTextures, PrimaryEguiContext,
+};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(EguiPlugin::default())
-        .add_systems(Startup, setup)
+        .add_systems(Startup, setup_system)
         .add_systems(
-            EguiContextPass,
+            EguiPrimaryContextPass,
             (rotator_system, render_to_image_example_system),
         )
         .run();
@@ -33,13 +36,17 @@ struct MainPassCube;
 #[derive(Deref, Resource)]
 struct CubePreviewImage(Handle<Image>);
 
-fn setup(
+fn setup_system(
     mut egui_user_textures: ResMut<EguiUserTextures>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
+    mut egui_global_settings: ResMut<EguiGlobalSettings>,
 ) {
+    // Disable the automatic creation of a primary context to set it up manually for the camera we need.
+    egui_global_settings.auto_create_primary_context = false;
+
     let size = Extent3d {
         width: 512,
         height: 512,
@@ -136,6 +143,7 @@ fn setup(
 
     // The main pass camera.
     commands.spawn((
+        PrimaryEguiContext,
         Camera3d::default(),
         Transform::from_translation(Vec3::new(0.0, 0.0, 15.0)).looking_at(Vec3::default(), Vec3::Y),
     ));
@@ -152,7 +160,7 @@ fn render_to_image_example_system(
     let preview_material_handle = preview_cube_query.single()?;
     let preview_material = materials.get_mut(preview_material_handle).unwrap();
 
-    let ctx = contexts.ctx_mut();
+    let ctx = contexts.ctx_mut()?;
     let mut apply = false;
     egui::Window::new("Cube material preview").show(ctx, |ui| {
         ui.image(egui::load::SizedTexture::new(

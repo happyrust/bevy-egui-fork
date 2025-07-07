@@ -1,10 +1,11 @@
 use crate::{
-    egui_node::{
-        DrawCommand, DrawPrimitive, EguiBevyPaintCallback, EguiDraw, EguiNode, EguiPipeline,
-        EguiPipelineKey, EguiRenderTargetType, PaintCallbackDraw,
+    helpers::QueryHelper,
+    render::{
+        DrawCommand, DrawPrimitive, EguiBevyPaintCallback, EguiCameraView, EguiDraw, EguiPipeline,
+        EguiPipelineKey, EguiViewTarget, PaintCallbackDraw,
     },
-    EguiContext, EguiContextSettings, EguiManagedTextures, EguiRenderOutput, EguiRenderToImage,
-    EguiUserTextures, RenderTargetSize,
+    EguiContextSettings, EguiManagedTextures, EguiRenderOutput, EguiUserTextures,
+    RenderComputedScaleFactor,
 };
 use bevy_asset::prelude::*;
 use bevy_derive::{Deref, DerefMut};
@@ -12,12 +13,12 @@ use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_ecs::entity::EntityGeneration;
 use bevy_image::Image;
 use bevy_log as log;
-use bevy_math::Vec2;
+use bevy_math::{URect, UVec2, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
+    camera::ExtractedCamera,
     extract_resource::ExtractResource,
     render_asset::RenderAssets,
-    render_graph::{RenderGraph, RenderLabel},
     render_resource::{
         BindGroup, BindGroupEntry, BindingResource, Buffer, BufferDescriptor, BufferId,
         CachedRenderPipelineId, DynamicUniformBuffer, PipelineCache, SpecializedRenderPipelines,
@@ -25,10 +26,8 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::{MainEntity, RenderEntity},
     texture::GpuImage,
-    view::ExtractedWindows,
-    Extract,
+    view::ExtractedView,
 };
-use bevy_window::Window;
 use bytemuck::cast_slice;
 use wgpu_types::{BufferAddress, BufferUsages};
 
@@ -65,37 +64,6 @@ pub struct ExtractedEguiTextures<'w> {
     pub user_textures: Res<'w, EguiUserTextures>,
 }
 
-/// [`RenderLabel`] type for the Egui pass.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-pub struct EguiPass {
-    /// Index of the window entity.
-    pub entity_index: u32,
-    /// Generation of the window entity.
-    pub entity_generation: EntityGeneration,
-    /// Render target type (e.g. window, image).
-    pub render_target_type: EguiRenderTargetType,
-}
-
-impl EguiPass {
-    /// Creates a pass from a window Egui context.
-    pub fn from_window_entity(entity: Entity) -> Self {
-        Self {
-            entity_index: entity.index(),
-            entity_generation: entity.generation(),
-            render_target_type: EguiRenderTargetType::Window,
-        }
-    }
-
-    /// Creates a pass from a "render to image" Egui context.
-    pub fn from_render_to_image_entity(entity: Entity) -> Self {
-        Self {
-            entity_index: entity.index(),
-            entity_generation: entity.generation(),
-            render_target_type: EguiRenderTargetType::Image,
-        }
-    }
-}
-
 impl ExtractedEguiTextures<'_> {
     /// Returns an iterator over all textures (both Egui and Bevy managed).
     pub fn handles(&self) -> impl Iterator<Item = (EguiTextureId, AssetId<Image>)> + '_ {
@@ -117,63 +85,6 @@ impl ExtractedEguiTextures<'_> {
     }
 }
 
-/// Sets up render nodes for newly created Egui contexts.
-pub fn setup_new_egui_nodes_system(
-    windows: Extract<
-        Query<(Entity, &RenderEntity, AnyOf<(&Window, &EguiRenderToImage)>), Added<EguiContext>>,
-    >,
-    mut render_graph: ResMut<RenderGraph>,
-) {
-    for (main_entity, render_entity, (window, render_to_image)) in windows.iter() {
-        let egui_pass = EguiPass::from_window_entity(main_entity);
-        let new_node = EguiNode::new(
-            MainEntity::from(main_entity),
-            *render_entity,
-            match (window.is_some(), render_to_image.is_some()) {
-                (true, false) => EguiRenderTargetType::Window,
-                (false, true) => EguiRenderTargetType::Image,
-                (true, true) => {
-                    log::error!(
-                        "Failed to set up an Egui node: can't render both to a window and an image"
-                    );
-                    continue;
-                }
-                (false, false) => unreachable!(),
-            },
-        );
-
-        render_graph.add_node(egui_pass.clone(), new_node);
-
-        render_graph.add_node_edge(bevy_render::graph::CameraDriverLabel, egui_pass);
-    }
-}
-
-/// Tears render nodes down for deleted window Egui contexts.
-pub fn teardown_window_nodes_system(
-    mut removed_windows: Extract<RemovedComponents<Window>>,
-    mut render_graph: ResMut<RenderGraph>,
-) {
-    for window_entity in removed_windows.read() {
-        if let Err(err) = render_graph.remove_node(EguiPass::from_window_entity(window_entity)) {
-            log::error!("Failed to remove a render graph node: {err:?}");
-        }
-    }
-}
-
-/// Tears render nodes down for deleted "render to texture" Egui contexts.
-pub fn teardown_render_to_image_nodes_system(
-    mut removed_windows: Extract<RemovedComponents<EguiRenderToImage>>,
-    mut render_graph: ResMut<RenderGraph>,
-) {
-    for window_entity in removed_windows.read() {
-        if let Err(err) =
-            render_graph.remove_node(EguiPass::from_render_to_image_entity(window_entity))
-        {
-            log::error!("Failed to remove a render graph node: {err:?}");
-        }
-    }
-}
-
 /// Describes the transform buffer.
 #[derive(Resource, Default)]
 pub struct EguiTransforms {
@@ -189,22 +100,19 @@ pub struct EguiTransforms {
 /// the screen space with the center at (0, 0) to the normalised viewport space.
 #[derive(encase::ShaderType, Default)]
 pub struct EguiTransform {
-    /// Is affected by window size and [`EguiContextSettings::scale_factor`].
+    /// Is affected by render target size, scale factor and [`EguiContextSettings::scale_factor`].
     pub scale: Vec2,
     /// Normally equals `Vec2::new(-1.0, 1.0)`.
     pub translation: Vec2,
 }
 
 impl EguiTransform {
-    /// Calculates the transform from window size and scale factor.
-    pub fn from_render_target_size(
-        render_target_size: RenderTargetSize,
-        scale_factor: f32,
-    ) -> Self {
+    /// Calculates the transform from target size and target scale factor multiplied by [`EguiContextSettings::scale_factor`].
+    pub fn new(target_size: Vec2, scale_factor: f32) -> Self {
         EguiTransform {
             scale: Vec2::new(
-                2.0 / (render_target_size.width() / scale_factor),
-                -2.0 / (render_target_size.height() / scale_factor),
+                2.0 / (target_size.x / scale_factor),
+                -2.0 / (target_size.y / scale_factor),
             ),
             translation: Vec2::new(-1.0, 1.0),
         }
@@ -214,24 +122,27 @@ impl EguiTransform {
 /// Prepares Egui transforms.
 pub fn prepare_egui_transforms_system(
     mut egui_transforms: ResMut<EguiTransforms>,
-    render_targets: Query<(Option<&MainEntity>, &EguiContextSettings, &RenderTargetSize)>,
+    views: Query<&RenderComputedScaleFactor>,
+    render_targets: Query<(&ExtractedView, &ExtractedCamera, &EguiCameraView)>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     egui_pipeline: Res<EguiPipeline>,
-) {
+) -> Result {
     egui_transforms.buffer.clear();
     egui_transforms.offsets.clear();
 
-    for (window_main, egui_settings, size) in render_targets.iter() {
+    for (view, camera, egui_camera_view) in render_targets.iter() {
+        let Some(target_size) = camera.physical_target_size else {
+            continue;
+        };
+
+        let &RenderComputedScaleFactor { scale_factor } = views.get(egui_camera_view.0)?;
         let offset = egui_transforms
             .buffer
-            .push(&EguiTransform::from_render_target_size(
-                *size,
-                egui_settings.scale_factor,
-            ));
-        if let Some(window_main) = window_main {
-            egui_transforms.offsets.insert(*window_main, offset);
-        }
+            .push(&EguiTransform::new(target_size.as_vec2(), scale_factor));
+        egui_transforms
+            .offsets
+            .insert(view.retained_view_entity.main_entity, offset);
     }
 
     egui_transforms
@@ -254,6 +165,8 @@ pub fn prepare_egui_transforms_system(
             }
         };
     }
+
+    Ok(())
 }
 
 /// Maps Egui textures to bind groups.
@@ -297,38 +210,30 @@ pub fn queue_bind_groups_system(
 #[derive(Resource)]
 pub struct EguiPipelines(pub HashMap<MainEntity, CachedRenderPipelineId>);
 
-/// Queue [`EguiPipeline`] instances specialized on each window's swap chain texture format.
+/// Queue [`EguiPipeline`] instances.
 pub fn queue_pipelines_system(
     mut commands: Commands,
     pipeline_cache: Res<PipelineCache>,
     mut specialized_pipelines: ResMut<SpecializedRenderPipelines<EguiPipeline>>,
     egui_pipeline: Res<EguiPipeline>,
-    windows: Res<ExtractedWindows>,
-    render_to_image: Query<(&MainEntity, &EguiRenderToImage)>,
-    images: Res<RenderAssets<GpuImage>>,
+    egui_views: Query<&EguiViewTarget, With<ExtractedView>>,
+    camera_views: Query<(&MainEntity, &ExtractedCamera)>,
 ) {
-    let mut pipelines: HashMap<MainEntity, CachedRenderPipelineId> = windows
+    let pipelines: HashMap<MainEntity, CachedRenderPipelineId> = egui_views
         .iter()
-        .filter_map(|(window_id, window)| {
-            let key = EguiPipelineKey::from_extracted_window(window)?;
-            let pipeline_id =
-                specialized_pipelines.specialize(&pipeline_cache, &egui_pipeline, key);
-            Some((MainEntity::from(*window_id), pipeline_id))
+        .filter_map(|egui_camera_view| {
+            let (main_entity, extracted_camera) = camera_views.get_some(egui_camera_view.0)?;
+
+            let pipeline_id = specialized_pipelines.specialize(
+                &pipeline_cache,
+                &egui_pipeline,
+                EguiPipelineKey {
+                    hdr: extracted_camera.hdr,
+                },
+            );
+            Some((*main_entity, pipeline_id))
         })
         .collect();
-
-    pipelines.extend(
-        render_to_image
-            .iter()
-            .filter_map(|(main_entity, render_to_image)| {
-                let img = images.get(&render_to_image.handle)?;
-                let key = EguiPipelineKey::from_gpu_image(img);
-                let pipeline_id =
-                    specialized_pipelines.specialize(&pipeline_cache, &egui_pipeline, key);
-
-                Some((*main_entity, pipeline_id))
-            }),
-    );
 
     commands.insert_resource(EguiPipelines(pipelines));
 }
@@ -337,9 +242,9 @@ pub fn queue_pipelines_system(
 #[derive(Default, Resource)]
 pub struct EguiRenderData(pub(crate) HashMap<MainEntity, EguiRenderTargetData>);
 
-#[derive(Default)]
 pub(crate) struct EguiRenderTargetData {
     keep: bool,
+    pub(crate) render_entity: RenderEntity,
     pub(crate) vertex_data: Vec<u8>,
     pub(crate) vertex_buffer_capacity: usize,
     pub(crate) vertex_buffer: Option<Buffer>,
@@ -349,24 +254,43 @@ pub(crate) struct EguiRenderTargetData {
     pub(crate) draw_commands: Vec<DrawCommand>,
     pub(crate) postponed_updates: Vec<(egui::Rect, PaintCallbackDraw)>,
     pub(crate) pixels_per_point: f32,
+    pub(crate) target_size: UVec2,
     pub(crate) key: Option<EguiPipelineKey>,
-    pub(crate) render_target_size: Option<RenderTargetSize>,
+}
+
+impl Default for EguiRenderTargetData {
+    fn default() -> Self {
+        Self {
+            keep: false,
+            render_entity: RenderEntity::from(Entity::PLACEHOLDER),
+            vertex_data: Vec::new(),
+            vertex_buffer_capacity: 0,
+            vertex_buffer: None,
+            index_data: Vec::new(),
+            index_buffer_capacity: 0,
+            index_buffer: None,
+            draw_commands: Vec::new(),
+            postponed_updates: Vec::new(),
+            pixels_per_point: 0.0,
+            target_size: UVec2::ZERO,
+            key: None,
+        }
+    }
 }
 
 /// Prepares Egui transforms.
-pub fn prepare_egui_render_target_data(
+pub fn prepare_egui_render_target_data_system(
     mut render_data: ResMut<EguiRenderData>,
     render_targets: Query<(
-        &MainEntity,
-        &EguiContextSettings,
-        &RenderTargetSize,
+        Entity,
+        &ExtractedView,
+        &RenderComputedScaleFactor,
+        &EguiViewTarget,
         &EguiRenderOutput,
-        Option<&EguiRenderToImage>,
     )>,
+    extracted_cameras: Query<&ExtractedCamera>,
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
-    extracted_windows: Res<ExtractedWindows>,
-    gpu_images: Res<RenderAssets<GpuImage>>,
 ) {
     let render_data = &mut render_data.0;
     render_data.retain(|_, data| {
@@ -375,55 +299,30 @@ pub fn prepare_egui_render_target_data(
         keep
     });
 
-    for (main_entity, egui_settings, render_target_size, render_output, render_to_image) in
+    for (render_entity, view, computed_scale_factor, egui_view_target, render_output) in
         render_targets.iter()
     {
-        let data = render_data.entry(*main_entity).or_default();
+        let data = render_data
+            .entry(view.retained_view_entity.main_entity)
+            .or_default();
 
         data.keep = true;
-
-        let render_target_size = *render_target_size;
-        let egui_settings = egui_settings.clone();
-        let image_handle =
-            render_to_image.map(|render_to_image| render_to_image.handle.clone_weak());
-
-        data.render_target_size = Some(render_target_size);
-
-        let render_target_type = if render_to_image.is_some() {
-            EguiRenderTargetType::Image
-        } else {
-            EguiRenderTargetType::Window
-        };
+        data.render_entity = render_entity.into();
 
         // Construct a pipeline key based on a render target.
-        let key = match render_target_type {
-            EguiRenderTargetType::Window => {
-                let Some(key) = extracted_windows
-                    .windows
-                    .get(&main_entity.id())
-                    .and_then(EguiPipelineKey::from_extracted_window)
-                else {
-                    continue;
-                };
-                key
-            }
-            EguiRenderTargetType::Image => {
-                let image_handle = image_handle
-                    .expect("Expected an image handle for a render to image node")
-                    .clone();
-                let Some(key) = gpu_images
-                    .get(&image_handle)
-                    .map(EguiPipelineKey::from_gpu_image)
-                else {
-                    continue;
-                };
-                key
-            }
+        let Ok(extracted_camera) = extracted_cameras.get(egui_view_target.0) else {
+            log::warn!("ExtractedCamera entity doesn't exist for the Egui view");
+            continue;
         };
-        data.key = Some(key);
+        data.key = Some(EguiPipelineKey {
+            hdr: extracted_camera.hdr,
+        });
 
-        data.pixels_per_point = render_target_size.scale_factor * egui_settings.scale_factor;
-        if render_target_size.physical_width == 0.0 || render_target_size.physical_height == 0.0 {
+        data.pixels_per_point = computed_scale_factor.scale_factor;
+        if extracted_camera
+            .physical_viewport_size
+            .map_or(true, |size| size.x < 1 || size.y < 1)
+        {
             continue;
         }
 
@@ -441,23 +340,23 @@ pub fn prepare_egui_render_target_data(
         {
             let clip_rect = *clip_rect;
 
-            let clip_urect = bevy_math::URect {
-                min: bevy_math::UVec2 {
+            let clip_urect = URect {
+                min: UVec2 {
                     x: (clip_rect.min.x * data.pixels_per_point).round() as u32,
                     y: (clip_rect.min.y * data.pixels_per_point).round() as u32,
                 },
-                max: bevy_math::UVec2 {
+                max: UVec2 {
                     x: (clip_rect.max.x * data.pixels_per_point).round() as u32,
                     y: (clip_rect.max.y * data.pixels_per_point).round() as u32,
                 },
             };
 
             if clip_urect
-                .intersect(bevy_math::URect::new(
-                    0,
-                    0,
-                    render_target_size.physical_width as u32,
-                    render_target_size.physical_height as u32,
+                .intersect(URect::new(
+                    view.viewport.x,
+                    view.viewport.y,
+                    view.viewport.x + view.viewport.z,
+                    view.viewport.y + view.viewport.w,
                 ))
                 .is_empty()
             {
@@ -505,7 +404,9 @@ pub fn prepare_egui_render_target_data(
             index_offset += mesh.vertices.len() as u32;
 
             let texture_handle = match mesh.texture_id {
-                egui::TextureId::Managed(id) => EguiTextureId::Managed(*main_entity, id),
+                egui::TextureId::Managed(id) => {
+                    EguiTextureId::Managed(view.retained_view_entity.main_entity, id)
+                }
                 egui::TextureId::User(id) => EguiTextureId::User(id),
             };
 
