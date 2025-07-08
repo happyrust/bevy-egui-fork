@@ -10,8 +10,7 @@ use bevy_ecs::{
 use bevy_platform::collections::HashMap;
 use bevy_window::RequestRedraw;
 use bevy_winit::{cursor::CursorIcon, EventLoopProxy, WakeUp};
-use std::{sync::Arc, time::Duration};
-use egui::OutputCommand;
+
 
 /// Reads Egui output.
 #[allow(clippy::too_many_arguments)]
@@ -90,7 +89,7 @@ pub fn process_output_system(
                         }
                     }
                 }
-                _ => {}
+
             }
         }
 
@@ -118,9 +117,7 @@ pub fn process_output_system(
             // winit, that it needs to wake up next frame as well even if there are no inputs.
             //
             // TLDR: this solves repaint corner cases of `WinitSettings::desktop_app()`.
-            if let Some(Duration::ZERO) =
-                ctx.viewport(|viewport| viewport.input.wants_repaint_after())
-            {
+            if ctx.requested_repaint_last_pass() {
                 let _ = event_loop_proxy.send_event(WakeUp);
             }
         }

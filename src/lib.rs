@@ -191,7 +191,7 @@ use bevy_ecs::{
 };
 #[cfg(feature = "render")]
 use bevy_image::{Image, ImageSampler};
-use bevy_input::{InputSystem, InputSystems};
+use bevy_input::InputSystems;
 #[allow(unused_imports)]
 use bevy_log as log;
 #[cfg(feature = "picking")]
@@ -209,7 +209,7 @@ use bevy_render::camera::NormalizedRenderTarget;
 use bevy_render::{
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_resource::SpecializedRenderPipelines,
-    ExtractSchedule, Render, RenderApp, RenderSet,
+    ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_winit::cursor::CursorIcon;
 use output::process_output_system;
@@ -1169,15 +1169,15 @@ impl Plugin for EguiPlugin {
         )
         .add_systems(
             Render,
-            render::systems::prepare_egui_transforms_system.in_set(RenderSet::Prepare),
+            render::systems::prepare_egui_transforms_system.in_set(RenderSystems::Prepare),
         )
         .add_systems(
             Render,
-            render::systems::queue_bind_groups_system.in_set(RenderSet::Queue),
+            render::systems::queue_bind_groups_system.in_set(RenderSystems::Queue),
         )
         .add_systems(
             Render,
-            render::systems::queue_pipelines_system.in_set(RenderSet::Queue),
+            render::systems::queue_pipelines_system.in_set(RenderSystems::Queue),
         )
         .add_systems(Last, free_egui_textures_system);
 
@@ -1268,20 +1268,20 @@ impl Plugin for EguiPlugin {
                 )
                 .add_systems(
                     Render,
-                    render::systems::prepare_egui_transforms_system.in_set(RenderSet::Prepare),
+                    render::systems::prepare_egui_transforms_system.in_set(RenderSystems::Prepare),
                 )
                 .add_systems(
                     Render,
                     render::systems::prepare_egui_render_target_data_system
-                        .in_set(RenderSet::Prepare),
+                        .in_set(RenderSystems::Prepare),
                 )
                 .add_systems(
                     Render,
-                    render::systems::queue_bind_groups_system.in_set(RenderSet::Queue),
+                    render::systems::queue_bind_groups_system.in_set(RenderSystems::Queue),
                 )
                 .add_systems(
                     Render,
-                    render::systems::queue_pipelines_system.in_set(RenderSet::Queue),
+                    render::systems::queue_pipelines_system.in_set(RenderSystems::Queue),
                 );
         }
     }

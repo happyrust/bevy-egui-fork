@@ -10,7 +10,7 @@ use crate::{
 use bevy_asset::prelude::*;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
-use bevy_ecs::entity::EntityGeneration;
+
 use bevy_image::Image;
 use bevy_log as log;
 use bevy_math::{URect, UVec2, Vec2};
