@@ -23,10 +23,8 @@ open_url = ["webbrowser"]
 default_fonts = ["egui/default_fonts"]
 render = [
     "bevy_asset",
-    "bevy_core_pipeline",
     "bevy_image",
     "bevy_render",
-    "bevy_transform",
     "encase",
     "bytemuck",
     "egui/bytemuck",
@@ -91,6 +89,7 @@ bevy_utils = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_util
 bevy_winit = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_winit", features = ["custom_cursor"] }
 bevy_window = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_window" }
 bevy_platform = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_platform" }
+bevy_core_pipeline = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_core_pipeline" }
 
 bytemuck = { version = "1", optional = true}
 egui = { git = "https://gitee.com/happydpc/egui.git", default-features = false, features = ["bytemuck"] }
