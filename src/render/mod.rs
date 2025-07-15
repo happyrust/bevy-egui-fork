@@ -325,7 +325,6 @@ pub(crate) fn as_color_image(image: &egui::ImageData) -> egui::ColorImage {
 }
 
 
-
 pub(crate) fn color_image_as_bevy_image(
     egui_image: &egui::ColorImage,
     sampler_descriptor: ImageSampler,
