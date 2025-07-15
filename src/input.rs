@@ -1264,12 +1264,7 @@ pub fn write_egui_wants_input_system(
             egui_wants_input.is_using_pointer || egui_ctx.is_using_pointer();
         egui_wants_input.wants_keyboard_input =
             egui_wants_input.wants_keyboard_input || egui_ctx.wants_keyboard_input();
-<<<<<<< HEAD
-        egui_wants_input.is_context_menu_open =
-            egui_wants_input.is_context_menu_open || egui_ctx.is_popup_open();
-=======
         egui_wants_input.is_popup_open = egui_wants_input.is_popup_open || egui_ctx.is_popup_open();
->>>>>>> upstream/egui-0.32
     }
 }
 

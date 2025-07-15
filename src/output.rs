@@ -9,12 +9,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashMap;
 use bevy_window::RequestRedraw;
-<<<<<<< HEAD
-use bevy_winit::{cursor::CursorIcon, EventLoopProxy, WakeUp};
-
-=======
 use bevy_winit::cursor::CursorIcon;
->>>>>>> upstream/egui-0.32
 
 /// Reads Egui output.
 #[allow(clippy::too_many_arguments)]
@@ -111,22 +106,6 @@ pub fn process_output_system(
 
         let needs_repaint = !render_output.is_empty();
         should_request_redraw |= ctx.has_requested_repaint() && needs_repaint;
-<<<<<<< HEAD
-
-        // The resource doesn't exist in the headless mode.
-        if let Some(event_loop_proxy) = &event_loop_proxy {
-            // A zero duration indicates that it's an outstanding redraw request, which gives Egui an
-            // opportunity to settle the effects of interactions with widgets. Such repaint requests
-            // are processed not immediately but on a next frame. In this case, we need to indicate to
-            // winit, that it needs to wake up next frame as well even if there are no inputs.
-            //
-            // TLDR: this solves repaint corner cases of `WinitSettings::desktop_app()`.
-            if ctx.requested_repaint_last_pass() {
-                let _ = event_loop_proxy.send_event(WakeUp);
-            }
-        }
-=======
->>>>>>> upstream/egui-0.32
     }
 
     if should_request_redraw {
