@@ -92,7 +92,7 @@ bevy_platform = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_p
 bevy_core_pipeline = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_core_pipeline" }
 
 bytemuck = { version = "1", optional = true}
-egui = { git = "https://gitee.com/happydpc/egui.git", default-features = false, features = ["bytemuck"] }
+egui = { version = "0.32", default-features = false, features = ["bytemuck"] }
 webbrowser = { version = "0.8.2", optional = true }
 wgpu-types = { git = "https://gitee.com/happydpc/wgpu.git" , optional = true }
 
@@ -128,7 +128,7 @@ bevy = {git = "https://gitee.com/happydpc/bevy.git", default-features = false, f
     "webgl2",
     "x11",
 ] }
-egui = { git = "https://gitee.com/happydpc/egui.git" , default-features = false, features = ["bytemuck"] }
+egui = { version = "0.32", default-features = false, features = ["bytemuck"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios", target_arch = "wasm32")))'.dev-dependencies]
 rfd = "0.15"
