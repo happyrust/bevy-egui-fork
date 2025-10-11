@@ -1,15 +1,14 @@
 use crate::{
-    helpers, input::WindowToEguiContextMap, EguiContext, EguiContextSettings, EguiFullOutput,
-    EguiGlobalSettings, EguiOutput, EguiRenderOutput,
+    EguiContext, EguiContextSettings, EguiFullOutput, EguiGlobalSettings, EguiOutput,
+    EguiRenderOutput, helpers, input::WindowToEguiContextMap,
 };
 use bevy_ecs::{
     entity::Entity,
-    event::EventWriter,
+    message::MessageWriter,
     system::{Commands, Local, Query, Res},
 };
 use bevy_platform::collections::HashMap;
-use bevy_window::RequestRedraw;
-use bevy_winit::cursor::CursorIcon;
+use bevy_window::{CursorIcon, RequestRedraw};
 
 /// Reads Egui output.
 #[allow(clippy::too_many_arguments)]
@@ -25,7 +24,7 @@ pub fn process_output_system(
     )>,
     #[cfg(all(feature = "manage_clipboard", not(target_os = "android")))]
     mut egui_clipboard: bevy_ecs::system::ResMut<crate::EguiClipboard>,
-    mut event: EventWriter<RequestRedraw>,
+    mut request_redraw_writer: MessageWriter<RequestRedraw>,
     mut last_cursor_icon: Local<HashMap<Entity, egui::CursorIcon>>,
     egui_global_settings: Res<EguiGlobalSettings>,
     window_to_egui_context_map: Res<WindowToEguiContextMap>,
@@ -37,7 +36,9 @@ pub fn process_output_system(
     {
         let ctx = context.get_mut();
         let Some(full_output) = full_output.0.take() else {
-            bevy_log::error!("bevy_egui pass output has not been prepared (if EguiSettings::run_manually is set to true, make sure to call egui::Context::run or egui::Context::begin_pass and egui::Context::end_pass)");
+            bevy_log::error!(
+                "bevy_egui pass output has not been prepared (if EguiSettings::run_manually is set to true, make sure to call egui::Context::run or egui::Context::begin_pass and egui::Context::end_pass)"
+            );
             continue;
         };
         let egui::FullOutput {
@@ -95,10 +96,14 @@ pub fn process_output_system(
             if let Some(window_entity) = window_to_egui_context_map.context_to_window.get(&entity) {
                 let last_cursor_icon = last_cursor_icon.entry(entity).or_default();
                 if *last_cursor_icon != egui_output.platform_output.cursor_icon {
-                    commands.entity(*window_entity).insert(CursorIcon::System(
-                        helpers::egui_to_winit_cursor_icon(egui_output.platform_output.cursor_icon)
+                    commands
+                        .entity(*window_entity)
+                        .try_insert(CursorIcon::System(
+                            helpers::egui_to_winit_cursor_icon(
+                                egui_output.platform_output.cursor_icon,
+                            )
                             .unwrap_or(bevy_window::SystemCursorIcon::Default),
-                    ));
+                        ));
                     *last_cursor_icon = egui_output.platform_output.cursor_icon;
                 }
             }
@@ -109,6 +114,6 @@ pub fn process_output_system(
     }
 
     if should_request_redraw {
-        event.write(RequestRedraw);
+        request_redraw_writer.write(RequestRedraw);
     }
 }

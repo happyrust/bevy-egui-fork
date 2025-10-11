@@ -1,9 +1,13 @@
-use bevy::{prelude::*, render::camera::Viewport, window::PrimaryWindow};
-use bevy_egui::{
-    egui, EguiContext, EguiContexts, EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass,
-    PrimaryEguiContext,
+use bevy::{
+    camera::{Viewport, visibility::RenderLayers},
+    prelude::*,
+    window::PrimaryWindow,
 };
-use bevy_render::view::RenderLayers;
+use bevy_egui::{
+    EguiContext, EguiContexts, EguiGlobalSettings, EguiPlugin, EguiPrimaryContextPass,
+    PrimaryEguiContext, egui,
+};
+use wgpu_types::BlendState;
 
 fn main() {
     App::new()
@@ -159,6 +163,11 @@ fn setup_system(
         RenderLayers::none(),
         Camera {
             order: 1,
+            output_mode: bevy_camera::CameraOutputMode::Write {
+                blend_state: Some(BlendState::ALPHA_BLENDING),
+                clear_color: ClearColorConfig::None,
+            },
+            clear_color: ClearColorConfig::Custom(Color::NONE),
             ..default()
         },
     ));

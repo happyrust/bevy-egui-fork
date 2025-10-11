@@ -1,11 +1,10 @@
 use crate::{
-    helpers::QueryHelper,
+    EguiContextSettings, EguiManagedTextures, EguiRenderOutput, EguiUserTextures,
+    RenderComputedScaleFactor,
     render::{
         DrawCommand, DrawPrimitive, EguiBevyPaintCallback, EguiCameraView, EguiDraw, EguiPipeline,
         EguiPipelineKey, EguiViewTarget, PaintCallbackDraw,
     },
-    EguiContextSettings, EguiManagedTextures, EguiRenderOutput, EguiUserTextures,
-    RenderComputedScaleFactor,
 };
 use bevy_asset::prelude::*;
 use bevy_derive::{Deref, DerefMut};
@@ -29,6 +28,7 @@ use bevy_render::{
     view::ExtractedView,
 };
 use bytemuck::cast_slice;
+use itertools::Itertools;
 use wgpu_types::{BufferAddress, BufferUsages};
 
 /// Extracted Egui settings.
@@ -80,7 +80,7 @@ impl ExtractedEguiTextures<'_> {
                 self.user_textures
                     .textures
                     .iter()
-                    .map(|(handle, id)| (EguiTextureId::User(*id), handle.id())),
+                    .map(|(handle, (_, id))| (EguiTextureId::User(*id), *handle)),
             )
     }
 }
@@ -171,7 +171,7 @@ pub fn prepare_egui_transforms_system(
 
 /// Maps Egui textures to bind groups.
 #[derive(Resource, Deref, DerefMut, Default)]
-pub struct EguiTextureBindGroups(pub HashMap<EguiTextureId, BindGroup>);
+pub struct EguiTextureBindGroups(pub HashMap<EguiTextureId, (BindGroup, Option<u32>)>);
 
 /// Queues bind groups.
 pub fn queue_bind_groups_system(
@@ -181,28 +181,75 @@ pub fn queue_bind_groups_system(
     gpu_images: Res<RenderAssets<GpuImage>>,
     egui_pipeline: Res<EguiPipeline>,
 ) {
-    let bind_groups = egui_textures
-        .handles()
-        .filter_map(|(texture, handle_id)| {
-            let gpu_image = gpu_images.get(&Handle::Weak(handle_id))?;
+    let egui_texture_iterator = egui_textures.handles().filter_map(|(texture, handle_id)| {
+        let gpu_image = gpu_images.get(handle_id)?;
+        Some((texture, gpu_image))
+    });
+
+    let bind_groups = if let Some(bindless) = egui_pipeline.bindless {
+        let bindless = u32::from(bindless) as usize;
+        let mut bind_groups = HashMap::new();
+
+        let mut texture_array = Vec::new();
+        let mut sampler_array = Vec::new();
+        let mut egui_texture_ids = Vec::new();
+
+        for textures in egui_texture_iterator.chunks(bindless).into_iter() {
+            texture_array.clear();
+            sampler_array.clear();
+            egui_texture_ids.clear();
+
+            for (egui_texture_id, gpu_image) in textures {
+                egui_texture_ids.push(egui_texture_id);
+                // Dereference needed to convert from bevy to wgpu type
+                texture_array.push(&*gpu_image.texture_view);
+                sampler_array.push(&*gpu_image.sampler);
+            }
+
             let bind_group = render_device.create_bind_group(
                 None,
                 &egui_pipeline.texture_bind_group_layout,
                 &[
                     BindGroupEntry {
                         binding: 0,
-                        resource: BindingResource::TextureView(&gpu_image.texture_view),
+                        resource: BindingResource::TextureViewArray(texture_array.as_slice()),
                     },
                     BindGroupEntry {
                         binding: 1,
-                        resource: BindingResource::Sampler(&gpu_image.sampler),
+                        resource: BindingResource::SamplerArray(sampler_array.as_slice()),
                     },
                 ],
             );
-            Some((texture, bind_group))
-        })
-        .collect();
 
+            // Simply assign bind group to egui texture
+            // Additional code is not needed because bevy RenderPass set_bind_group
+            // removes redundant switching between bind groups
+            for (offset, egui_texture_id) in egui_texture_ids.drain(..).enumerate() {
+                bind_groups.insert(egui_texture_id, (bind_group.clone(), Some(offset as u32)));
+            }
+        }
+        bind_groups
+    } else {
+        egui_texture_iterator
+            .map(|(texture, gpu_image)| {
+                let bind_group = render_device.create_bind_group(
+                    None,
+                    &egui_pipeline.texture_bind_group_layout,
+                    &[
+                        BindGroupEntry {
+                            binding: 0,
+                            resource: BindingResource::TextureView(&gpu_image.texture_view),
+                        },
+                        BindGroupEntry {
+                            binding: 1,
+                            resource: BindingResource::Sampler(&gpu_image.sampler),
+                        },
+                    ],
+                );
+                (texture, (bind_group, None::<u32>))
+            })
+            .collect()
+    };
     commands.insert_resource(EguiTextureBindGroups(bind_groups))
 }
 
@@ -222,7 +269,7 @@ pub fn queue_pipelines_system(
     let pipelines: HashMap<MainEntity, CachedRenderPipelineId> = egui_views
         .iter()
         .filter_map(|egui_camera_view| {
-            let (main_entity, extracted_camera) = camera_views.get_some(egui_camera_view.0)?;
+            let (main_entity, extracted_camera) = camera_views.get(egui_camera_view.0).ok()?;
 
             let pipeline_id = specialized_pipelines.specialize(
                 &pipeline_cache,
@@ -311,7 +358,8 @@ pub fn prepare_egui_render_target_data_system(
 
         // Construct a pipeline key based on a render target.
         let Ok(extracted_camera) = extracted_cameras.get(egui_view_target.0) else {
-            log::warn!("ExtractedCamera entity doesn't exist for the Egui view");
+            // This is ok when a window is minimized.
+            log::trace!("ExtractedCamera entity doesn't exist for the Egui view");
             continue;
         };
         data.key = Some(EguiPipelineKey {
@@ -321,7 +369,7 @@ pub fn prepare_egui_render_target_data_system(
         data.pixels_per_point = computed_scale_factor.scale_factor;
         if extracted_camera
             .physical_viewport_size
-            .map_or(true, |size| size.x < 1 || size.y < 1)
+            .is_none_or(|size| size.x < 1 || size.y < 1)
         {
             continue;
         }
