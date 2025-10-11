@@ -88,7 +88,6 @@ pub fn process_output_system(
                         }
                     }
                 }
-
             }
         }
 

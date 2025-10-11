@@ -99,6 +99,7 @@ pub struct EguiTransforms {
 /// Scale and translation for rendering Egui shapes. Is needed to transform Egui coordinates from
 /// the screen space with the center at (0, 0) to the normalised viewport space.
 #[derive(encase::ShaderType, Default)]
+#[allow(dead_code)]
 pub struct EguiTransform {
     /// Is affected by render target size, scale factor and [`EguiContextSettings::scale_factor`].
     pub scale: Vec2,

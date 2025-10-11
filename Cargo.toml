@@ -103,7 +103,6 @@ bytemuck = { version = "1", optional = true}
 webbrowser = { version = "0.8.2", optional = true }
 
 # `render` feature
-bytemuck = { version = "1", optional = true }
 
 bevy_asset = { git = "https://github.com/happyrust/bevy", package = "bevy_asset", optional = true }
 bevy_core_pipeline = { git = "https://github.com/happyrust/bevy", package = "bevy_core_pipeline", optional = true }
