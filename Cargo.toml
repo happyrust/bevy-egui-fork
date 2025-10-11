@@ -75,21 +75,21 @@ name = "file_browse"
 required-features = ["render"]
 
 [dependencies]
-bevy_app = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_app" }
-bevy_a11y = {  git = "https://gitee.com/happydpc/bevy.git", package = "bevy_a11y", optional = true }
-bevy_derive = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_derive" }
-bevy_ecs = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_ecs" }
-bevy_input = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_input" }
-bevy_log = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_log" }
-bevy_math = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_math" }
-bevy_transform = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_transform" }
-bevy_reflect = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_reflect" }
-bevy_time = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_time" }
-bevy_utils = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_utils" }
-bevy_winit = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_winit", features = ["custom_cursor"] }
-bevy_window = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_window" }
-bevy_platform = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_platform" }
-bevy_core_pipeline = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_core_pipeline" }
+bevy_app = { git = "https://github.com/happyrust/bevy", package = "bevy_app" }
+bevy_a11y = {  git = "https://github.com/happyrust/bevy", package = "bevy_a11y", optional = true }
+bevy_derive = { git = "https://github.com/happyrust/bevy", package = "bevy_derive" }
+bevy_ecs = { git = "https://github.com/happyrust/bevy", package = "bevy_ecs" }
+bevy_input = { git = "https://github.com/happyrust/bevy", package = "bevy_input" }
+bevy_log = { git = "https://github.com/happyrust/bevy", package = "bevy_log" }
+bevy_math = { git = "https://github.com/happyrust/bevy", package = "bevy_math" }
+bevy_transform = { git = "https://github.com/happyrust/bevy", package = "bevy_transform" }
+bevy_reflect = { git = "https://github.com/happyrust/bevy", package = "bevy_reflect" }
+bevy_time = { git = "https://github.com/happyrust/bevy", package = "bevy_time" }
+bevy_utils = { git = "https://github.com/happyrust/bevy", package = "bevy_utils" }
+bevy_winit = { git = "https://github.com/happyrust/bevy", package = "bevy_winit", features = ["custom_cursor"] }
+bevy_window = { git = "https://github.com/happyrust/bevy", package = "bevy_window" }
+bevy_platform = { git = "https://github.com/happyrust/bevy", package = "bevy_platform" }
+bevy_core_pipeline = { git = "https://github.com/happyrust/bevy", package = "bevy_core_pipeline" }
 
 bytemuck = { version = "1", optional = true}
 egui = { version = "0.32", default-features = false, features = ["bytemuck"] }
@@ -97,13 +97,13 @@ webbrowser = { version = "0.8.2", optional = true }
 wgpu-types = { git = "https://gitee.com/happydpc/wgpu.git" , optional = true }
 
 # `render` feature
-bevy_asset = {  git = "https://gitee.com/happydpc/bevy.git", package = "bevy_asset", optional = true }
-bevy_image = {  git = "https://gitee.com/happydpc/bevy.git", package = "bevy_image", optional = true }
-bevy_render = {  git = "https://gitee.com/happydpc/bevy.git", package = "bevy_render", optional = true }
+bevy_asset = {  git = "https://github.com/happyrust/bevy", package = "bevy_asset", optional = true }
+bevy_image = {  git = "https://github.com/happyrust/bevy", package = "bevy_image", optional = true }
+bevy_render = {  git = "https://github.com/happyrust/bevy", package = "bevy_render", optional = true }
 encase = { version = "0.10", optional = true }
 
 # `picking` feature
-bevy_picking = { git = "https://gitee.com/happydpc/bevy.git", package = "bevy_picking", optional = true }
+bevy_picking = { git = "https://github.com/happyrust/bevy", package = "bevy_picking", optional = true }
 
 # `manage_clipboard` feature
 [target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dependencies]
@@ -112,7 +112,7 @@ thread_local = { version = "1.1.0", optional = true }
 
 [dev-dependencies]
 version-sync = "0.9.5"
-bevy = {git = "https://gitee.com/happydpc/bevy.git", default-features = false, features = [
+bevy = {git = "https://github.com/happyrust/bevy", default-features = false, features = [
     "accesskit_unix",
     "bevy_asset",
     "bevy_core_pipeline",
@@ -134,7 +134,7 @@ egui = { version = "0.32", default-features = false, features = ["bytemuck"] }
 rfd = "0.15"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-winit = { git = "https://gitee.com/happydpc/winit.git" }
+winit = { git = "https://github.com/rust-windowing/winit.git" }
 web-sys = { version = "0.3.74", features = [
     "Clipboard",
     "ClipboardEvent",
@@ -155,4 +155,3 @@ js-sys = "0.3.63"
 wasm-bindgen = "0.2.93"
 wasm-bindgen-futures = "0.4.36"
 crossbeam-channel = "0.5.8"
-
