@@ -16,28 +16,28 @@ features = ["bevy_winit/x11", "immutable_ctx"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
 default = ["manage_clipboard", "open_url", "default_fonts", "render", "bevy_ui", "picking"]
-accesskit_placeholder = ["egui/accesskit", "bevy_a11y"] # the feature won't compile until Egui updates its accesskit version, hence disabled by default
+accesskit_placeholder = ["egui/accesskit", "dep:bevy_a11y"] # the feature won't compile until Egui updates its accesskit version, hence disabled by default
 immutable_ctx = []
-manage_clipboard = ["arboard", "thread_local", "bytemuck", "egui/bytemuck"]
-open_url = ["webbrowser"]
+manage_clipboard = ["dep:arboard", "dep:thread_local", "dep:bytemuck", "egui/bytemuck"]
+open_url = ["dep:webbrowser"]
 default_fonts = ["egui/default_fonts"]
 render = [
-    "bevy_asset",
-    "bevy_image",
-    "bevy_mesh",
-    "bevy_render",
-    "bevy_shader",
-    "bevy_transform",
-    "encase",
-    "bytemuck",
+    "dep:bevy_asset",
+    "dep:bevy_image",
+    "dep:bevy_mesh",
+    "dep:bevy_render",
+    "dep:bevy_shader",
+    "dep:bevy_transform",
+    "dep:encase",
+    "dep:bytemuck",
     "egui/bytemuck",
-    "wgpu-types",
-    "itertools",
+    "dep:wgpu-types",
+    "dep:itertools",
 ]
 bevy_ui = [
-    "bevy_ui_render",
+    "dep:bevy_ui_render",
 ]
-picking = ["render", "bevy_picking"]
+picking = ["render", "dep:bevy_picking"]
 serde = ["egui/serde"]
 # The enabled logs will print with the info log level, to make it less cumbersome to debug in browsers.
 log_input_messages = []
@@ -82,7 +82,7 @@ name = "file_browse"
 required-features = ["render"]
 
 [dependencies]
-egui = { version = "0.32", default-features = false }
+egui = { version = "0.33", default-features = false }
 bevy_a11y = { git = "https://github.com/happyrust/bevy", package = "bevy_a11y", optional = true }
 bevy_app = { git = "https://github.com/happyrust/bevy", package = "bevy_app" }
 bevy_camera = { git = "https://github.com/happyrust/bevy", package = "bevy_camera" }
@@ -105,13 +105,13 @@ webbrowser = { version = "0.8.2", optional = true }
 # `render` feature
 
 bevy_asset = { git = "https://github.com/happyrust/bevy", package = "bevy_asset", optional = true }
-bevy_core_pipeline = { git = "https://github.com/happyrust/bevy", package = "bevy_core_pipeline", optional = true }
+bevy_core_pipeline = { git = "https://github.com/happyrust/bevy", package = "bevy_core_pipeline" }
 bevy_image = { git = "https://github.com/happyrust/bevy", package = "bevy_image", features = ["zstd_rust"], optional = true }
-bevy_mesh = { git = "https://github.com/happyrust/bevy", package = "bevy_mesh", optional = true }
-bevy_render = { git = "https://github.com/happyrust/bevy", package = "bevy_render", optional = true }
+bevy_mesh = { git = "https://github.com/happyrust/bevy", package = "bevy_mesh", optional = true, features = ["morph", "bevy_mikktspace"] }
+bevy_render = { git = "https://github.com/happyrust/bevy", package = "bevy_render", optional = true, features = ["morph"] }
 bevy_shader = { git = "https://github.com/happyrust/bevy", package = "bevy_shader", optional = true }
 bevy_transform = { git = "https://github.com/happyrust/bevy", package = "bevy_transform", optional = true }
-encase = { version = "0.11", optional = true }
+encase = { version = "0.12", optional = true }
 itertools = { version = "0.14", optional = true }
 wgpu-types = { version = "26.0", optional = true }
 
@@ -147,7 +147,7 @@ bevy = { git = "https://github.com/happyrust/bevy", default-features = false, fe
     "x11",
     "zstd_rust"
 ] }
-egui = { version = "0.32", default-features = false, features = ["bytemuck"] }
+egui = { version = "0.33", default-features = false, features = ["bytemuck"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 bevy = { git = "https://github.com/happyrust/bevy", default-features = false, features = ["accesskit_unix"] }
