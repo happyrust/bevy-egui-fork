@@ -1232,11 +1232,11 @@ pub fn absorb_bevy_input_system(
 /// Stores whether there's an Egui context using pointer or keyboard.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct EguiWantsInput {
-    is_pointer_over_area: bool,
-    wants_pointer_input: bool,
-    is_using_pointer: bool,
-    wants_keyboard_input: bool,
-    is_popup_open: bool,
+    pub is_pointer_over_area: bool,
+    pub wants_pointer_input: bool,
+    pub is_using_pointer: bool,
+    pub wants_keyboard_input: bool,
+    pub is_popup_open: bool,
 }
 
 impl EguiWantsInput {

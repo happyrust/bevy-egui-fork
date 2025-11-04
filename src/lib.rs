@@ -136,6 +136,8 @@ pub mod web_clipboard;
 
 pub use egui;
 
+pub use crate::input::EguiWantsInput;
+
 use crate::input::*;
 #[cfg(target_arch = "wasm32")]
 use crate::text_agent::{
