@@ -545,8 +545,8 @@ pub fn write_mouse_wheel_messages_system(
             event: egui::Event::MouseWheel {
                 unit,
                 delta,
-                modifiers,
                 phase: egui::TouchPhase::Move,
+                modifiers,
             },
         });
     }
@@ -1232,10 +1232,15 @@ pub fn absorb_bevy_input_system(
 /// Stores whether there's an Egui context using pointer or keyboard.
 #[derive(Resource, Clone, Debug, Default)]
 pub struct EguiWantsInput {
+    /// True when any egui area is currently under the pointer.
     pub is_pointer_over_area: bool,
+    /// True when egui requests ownership of pointer interactions this frame.
     pub wants_pointer_input: bool,
+    /// True when egui actively consumes pointer movement (e.g. drag/slider).
     pub is_using_pointer: bool,
+    /// True when egui requests keyboard focus for text shortcuts/typing.
     pub wants_keyboard_input: bool,
+    /// True when egui shows a popup menu which should block world input.
     pub is_popup_open: bool,
 }
 

@@ -15,7 +15,7 @@ features = ["bevy_winit/x11", "immutable_ctx"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-default = ["manage_clipboard", "open_url", "default_fonts", "render", "bevy_ui", "picking"]
+default = ["manage_clipboard", "open_url", "default_fonts", "render", "bevy_ui"]
 accesskit = ["egui/accesskit", "dep:bevy_a11y"]
 immutable_ctx = []
 manage_clipboard = ["dep:arboard", "dep:thread_local", "dep:bytemuck", "egui/bytemuck"]
@@ -123,7 +123,7 @@ wgpu-types = { version = "26.0", optional = true }
 bevy_ui_render = { git = "https://github.com/happyrust/bevy", package = "bevy_ui_render", optional = true }
 
 # `picking` feature
-bevy_picking = { git = "https://github.com/happyrust/bevy", package = "bevy_picking", optional = true, features = ["bevy_mesh_picking_backend"] }
+bevy_picking = { git = "https://github.com/happyrust/bevy", package = "bevy_picking", optional = true }
 
 # `manage_clipboard` feature
 [target.'cfg(not(any(target_arch = "wasm32", target_os = "android")))'.dependencies]
@@ -137,7 +137,6 @@ bevy = { git = "https://github.com/happyrust/bevy", default-features = false, fe
     "bevy_asset",
     "bevy_core_pipeline",
     "bevy_pbr",
-    "bevy_mesh_picking_backend",
     "bevy_sprite",
     "bevy_sprite_render",
     "bevy_text",
@@ -182,11 +181,14 @@ wasm-bindgen-futures = "0.4.36"
 crossbeam-channel = "0.5.8"
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
+
 [patch.crates-io]
-egui = { git = "https://github.com/emilk/egui.git" }
-# eframe = { git = "https://github.com/emilk/egui.git" }
-# egui_extras = { git = "https://github.com/emilk/egui.git" }
-# egui-winit = { git = "https://github.com/emilk/egui.git" }
-# epaint = { git = "https://github.com/emilk/egui.git" }
-# emath = { git = "https://github.com/emilk/egui.git" }
-# ecolor = { git = "https://github.com/emilk/egui.git" }
+egui = { git = "https://github.com/emilk/egui.git", rev = "fa4cfec777c9ea21b8643f77b6a26561da44aad0" }
+epaint = { git = "https://github.com/emilk/egui.git", rev = "fa4cfec777c9ea21b8643f77b6a26561da44aad0", package = "epaint" }
+emath = { git = "https://github.com/emilk/egui.git", rev = "fa4cfec777c9ea21b8643f77b6a26561da44aad0", package = "emath" }
+ecolor = { git = "https://github.com/emilk/egui.git", rev = "fa4cfec777c9ea21b8643f77b6a26561da44aad0", package = "ecolor" }
+egui_extras = { git = "https://github.com/emilk/egui.git", rev = "fa4cfec777c9ea21b8643f77b6a26561da44aad0", package = "egui_extras" }
+egui-winit = { git = "https://github.com/emilk/egui.git", rev = "fa4cfec777c9ea21b8643f77b6a26561da44aad0", package = "egui-winit" }
+egui-wgpu = { git = "https://github.com/emilk/egui.git", rev = "fa4cfec777c9ea21b8643f77b6a26561da44aad0", package = "egui-wgpu" }
+egui_glow = { git = "https://github.com/emilk/egui.git", rev = "fa4cfec777c9ea21b8643f77b6a26561da44aad0", package = "egui_glow" }
+eframe = { git = "https://github.com/emilk/egui.git", rev = "fa4cfec777c9ea21b8643f77b6a26561da44aad0", package = "eframe" }
