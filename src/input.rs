@@ -545,8 +545,8 @@ pub fn write_mouse_wheel_messages_system(
             event: egui::Event::MouseWheel {
                 unit,
                 delta,
-                phase: egui::TouchPhase::Move,
                 modifiers,
+                phase: egui::TouchPhase::Move,
             },
         });
     }
