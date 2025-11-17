@@ -42,8 +42,8 @@ use bevy_render::{
     render_graph::{Node, NodeRunError, RenderGraph, RenderGraphContext},
     render_phase::TrackedRenderPass,
     render_resource::{
-        BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntries, FragmentState, RenderPipelineDescriptor,
-        SpecializedRenderPipeline, VertexState,
+        BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntries, FragmentState,
+        RenderPipelineDescriptor, SpecializedRenderPipeline, VertexState,
         binding_types::{sampler, texture_2d, uniform_buffer},
     },
     renderer::{RenderContext, RenderDevice},
@@ -256,9 +256,10 @@ impl FromWorld for EguiPipeline {
             entries: BindGroupLayoutEntries::single(
                 ShaderStages::VERTEX,
                 uniform_buffer::<EguiTransform>(true),
-            ).to_vec(),
+            )
+            .to_vec(),
         };
-        
+
         let transform_bind_group_layout = render_device.create_bind_group_layout(
             "egui_transform_layout",
             &BindGroupLayoutEntries::single(
@@ -267,41 +268,38 @@ impl FromWorld for EguiPipeline {
             ),
         );
 
-        let (texture_bind_group_layout_descriptor, texture_bind_group_layout) = if let Some(bindless) = bindless {
-            let entries = BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }).count(bindless),
-                    sampler(SamplerBindingType::Filtering).count(bindless),
-                ),
-            );
-            let descriptor = BindGroupLayoutDescriptor {
-                label: "egui_texture_layout".into(),
-                entries: entries.to_vec(),
+        let (texture_bind_group_layout_descriptor, texture_bind_group_layout) =
+            if let Some(bindless) = bindless {
+                let entries = BindGroupLayoutEntries::sequential(
+                    ShaderStages::FRAGMENT,
+                    (
+                        texture_2d(TextureSampleType::Float { filterable: true }).count(bindless),
+                        sampler(SamplerBindingType::Filtering).count(bindless),
+                    ),
+                );
+                let descriptor = BindGroupLayoutDescriptor {
+                    label: "egui_texture_layout".into(),
+                    entries: entries.to_vec(),
+                };
+                let layout =
+                    render_device.create_bind_group_layout("egui_texture_layout", &entries);
+                (descriptor, layout)
+            } else {
+                let entries = BindGroupLayoutEntries::sequential(
+                    ShaderStages::FRAGMENT,
+                    (
+                        texture_2d(TextureSampleType::Float { filterable: true }),
+                        sampler(SamplerBindingType::Filtering),
+                    ),
+                );
+                let descriptor = BindGroupLayoutDescriptor {
+                    label: "egui_texture_layout".into(),
+                    entries: entries.to_vec(),
+                };
+                let layout =
+                    render_device.create_bind_group_layout("egui_texture_layout", &entries);
+                (descriptor, layout)
             };
-            let layout = render_device.create_bind_group_layout(
-                "egui_texture_layout",
-                &entries,
-            );
-            (descriptor, layout)
-        } else {
-            let entries = BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                ),
-            );
-            let descriptor = BindGroupLayoutDescriptor {
-                label: "egui_texture_layout".into(),
-                entries: entries.to_vec(),
-            };
-            let layout = render_device.create_bind_group_layout(
-                "egui_texture_layout",
-                &entries,
-            );
-            (descriptor, layout)
-        };
 
         EguiPipeline {
             transform_bind_group_layout,
